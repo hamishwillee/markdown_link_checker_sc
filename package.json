@@ -1,0 +1,19 @@
+{
+  "name": "markdown_link_checker_sc",
+  "version": "0.0.1",
+  "description": "Markdown Link Checker",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "keywords": [
+    "link",
+    "checker",
+    "markdown"
+  ],
+  "author": "Hamish Willee",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^10.0.0"
+  }
+}
