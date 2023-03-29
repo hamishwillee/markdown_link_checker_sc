@@ -13,7 +13,12 @@ program
   .option(
     "-h, --headingAnchorSlugify [value]",
     "Slugify approach for turning markdown headings into heading anchors. Currently support vuepress only and always",
-    'vuepress'
+    "vuepress"
+  )
+  .option(
+    "-t, --tryMarkdownforHTML [value]",
+    "Try a markdown file extension check if a link to HTML fails.",
+    true
   )
   .parse(process.argv);
 
@@ -70,17 +75,24 @@ const processMarkdownLink = (
       isMarkdownImageLink
         ? absoluteImageLinks.push(link)
         : absoluteLinks.push(link);
-    } 
-    else if (linkUrl.startsWith("ftp:") || linkUrl.startsWith("ftps") || linkUrl.startsWith("mailto")) {
-       // One of the types we specifically do not handle
-       unHandledLinkTypes.push(link);
-    }
-    else if ( linkUrl.endsWith(".png") ||  linkUrl.endsWith(".jpg") ||  linkUrl.endsWith(".jpeg") ||  linkUrl.endsWith(".gif") ||  linkUrl.endsWith(".webp") ) {
+    } else if (
+      linkUrl.startsWith("ftp:") ||
+      linkUrl.startsWith("ftps") ||
+      linkUrl.startsWith("mailto")
+    ) {
+      // One of the types we specifically do not handle
+      unHandledLinkTypes.push(link);
+    } else if (
+      linkUrl.endsWith(".png") ||
+      linkUrl.endsWith(".jpg") ||
+      linkUrl.endsWith(".jpeg") ||
+      linkUrl.endsWith(".gif") ||
+      linkUrl.endsWith(".webp")
+    ) {
       //console.log("???Markdown");
-      //Catch case where image link is inside 
+      //Catch case where image link is inside
       relativeImageLinks.push(link);
-    }
-    else {
+    } else {
       isMarkdownImageLink
         ? relativeImageLinks.push(link)
         : relativeLinks.push(link);
@@ -215,6 +227,7 @@ function processRelativeLinks(results) {
     page.relativeLinks.forEach((link, index, array) => {
       //console.log(link);
       //resolve the path for the link
+      const page_rel_path = page.page_file.split(options.directory)[1];
       if (link.linkUrl === "") {
         //page local link - check current page for headings
         //console.log(link);
@@ -227,7 +240,7 @@ function processRelativeLinks(results) {
           //do nothing - we're good
         } else {
           console.log(
-            `ERROR: ${page.page_file}: Missing local anchor [${link.linkText}](#${link.linkAnchor})`
+            `ERROR: ${page_rel_path}: Missing local anchor [${link.linkText}](#${link.linkAnchor})`
           );
           /*
           console.log(`DEBUG: Anchor: BB${link.linkAnchor}BB - AutoHeadingAnchors BB${page.anchors_auto_headings}BB`);
@@ -244,43 +257,70 @@ function processRelativeLinks(results) {
           path.dirname(page.page_file),
           link.linkUrl
         );
-        //console.log(`DEBUG: RESOLVE: ${page.page_file} and ${link.linkUrl} TO ${linkAbsoluteFilePath}`);
 
-        //console.log(linkAbsoluteFilePath);
-        // Get the matching object if it exists
-        const obj =
+        // Get the matching file matching our link, if it exists
+        let linkedFile =
           results.find(
-            (obj) =>
-              obj.hasOwnProperty("page_file") &&
-              path.normalize(obj.page_file) === linkAbsoluteFilePath
+            (linkedFile) =>
+              linkedFile.hasOwnProperty("page_file") &&
+              path.normalize(linkedFile.page_file) === linkAbsoluteFilePath
           ) || null;
-        if (!obj) {
-          //Add here another check for the page file with file extension html.
-          //Most markdown parsers will allow the link to html.
-          //So it is a warning if the file exists as markdown.
-          // But there are annoying cases where this warning is OK so you might want to suppress it for a particular pages - think about that.
 
+        if (!linkedFile) {
+          if (
+            options.tryMarkdownforHTML &&
+            linkAbsoluteFilePath.endsWith(".html")
+          ) {
+            // The file was HTML so it might be a file extension mistake (linking to html instead of md)
+            // In this case we'll try find it.
+
+            const markdownAbsoluteFilePath = `${
+              linkAbsoluteFilePath.split(".html")[0]
+            }.md`;
+            const linkedHTMLFile =
+              results.find(
+                (linkedHTMLFile) =>
+                  linkedHTMLFile.hasOwnProperty("page_file") &&
+                  path.normalize(linkedHTMLFile.page_file) ===
+                    markdownAbsoluteFilePath
+              ) || null;
+
+            if (linkedHTMLFile) {
+              console.log(
+                `: ${page_rel_path}: WARN: Link to .html not .md '${link.linkUrl}' with text '${link.linkText}' (${linkAbsoluteFilePath} )`
+              );
+              linkedFile = linkedHTMLFile;
+            }
+          }
+        }
+
+        if (!linkedFile) {
+          //File not found as .html or md
           console.log(
-            `ERROR: ${page.page_file}: Broken relative link '${link.linkUrl}' with text '${link.linkText}' (${linkAbsoluteFilePath} )`
+            `ERROR: ${page_rel_path}: ERROR Broken rel. link '${link.linkUrl}' with text '${link.linkText}' (${linkAbsoluteFilePath} )`
           );
-          //console.log(`DEBUG: ${obj.page_file}`);
-          //console.log(link);
         } else {
           // There is a link, so now see if there are anchors, and whether they work
-          if (!link.linkAnchor) {//null
+          if (!link.linkAnchor) {
+            //null
             return;
           } else if (
-            obj.anchors_auto_headings.includes(link.linkAnchor) ||
-            obj.anchors_tag_ids.includes(link.linkAnchor)
+            linkedFile.anchors_auto_headings.includes(link.linkAnchor) ||
+            linkedFile.anchors_tag_ids.includes(link.linkAnchor)
           ) {
             //
             //do nothing - we're good
-          } else { // Link exists, but anchor broken
+          } else {
+            // Link exists, but anchor broken
+
+            const link_rel_path = linkedFile.page_file.split(
+              options.directory
+            )[1];
+
             console.log(
-              `WARN: ${page.page_file}: Link to page ${obj.page_file} works but missing anchor (${link.linkAnchor}). Linktext is ${link.linkText}`
+              `WARN: ${page_rel_path}: Missing anchor \`${link.linkAnchor}\` linked in '${link_rel_path}' (linktext '${link.linkText}')`
             );
             //console.log(`ERRORS CAUSED BY INCORRECT GUESS ABOUT FORMAT OF / in the new URL - e.g. mounting/orientation`)
-
           }
         }
       }
