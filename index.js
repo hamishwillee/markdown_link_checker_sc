@@ -60,10 +60,16 @@ const processMarkdownLink = (
   absoluteImageLinks,
   unHandledLinkTypes
 ) => {
-  const matches = line.matchAll(/(!?)\[([^\]]+)\]\((\S+?)\)/g);
+  const matches = line.matchAll(/([!@]?)\[([^\]]+)\]\((\S+?)\)/g);
+
+  // TODO - THIS matches @[youtube](gjHj6YsxcZk) valid link which is used for vuepress plugin URLs. We probably want to exclude it and deal with it separately
+  // Maybe a backwards lookup on @
+  // Not sure if we can generalize
 
   for (const match of matches) {
     const isMarkdownImageLink = match[1] == "!" ? true : false;
+    const isVuepressYouTubeLink = match[1] == "@" ? true : false;
+
     const linkText = match[2];
     let linkUrl = match[3];
     const linkAnchorSplit = linkUrl.split("#");
@@ -71,7 +77,15 @@ const processMarkdownLink = (
     const linkAnchor = linkAnchorSplit[1] ? linkAnchorSplit[1] : null;
 
     const link = { linkText, linkUrl, linkAnchor };
-    if (linkUrl.startsWith("http")) {
+
+    if (isVuepressYouTubeLink) {
+      if (linkUrl.startsWith("http")) {
+        absoluteLinks.push(link);
+      } else {
+        unHandledLinkTypes.push(link); // Not going to handle this (yet)
+        // TODO - prepend the standard URL
+      }
+    } else if (linkUrl.startsWith("http")) {
       isMarkdownImageLink
         ? absoluteImageLinks.push(link)
         : absoluteLinks.push(link);
@@ -236,7 +250,6 @@ function processRelativeLinks(results) {
           page.anchors_auto_headings.includes(link.linkAnchor) ||
           page.anchors_tag_ids.includes(link.linkAnchor)
         ) {
-          //
           //do nothing - we're good
         } else {
           console.log(
@@ -245,8 +258,6 @@ function processRelativeLinks(results) {
           /*
           console.log(`DEBUG: Anchor: BB${link.linkAnchor}BB - AutoHeadingAnchors BB${page.anchors_auto_headings}BB`);
           console.log(page.anchors_auto_headings);
-          console.log(`DEBUG: Anchor: AA${link.linkAnchor}AA - IdAnchors CC${page.anchors_tag_ids}CC`);
-          console.log(page.anchors_tag_ids);
           */
         }
       } else {
