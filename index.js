@@ -158,6 +158,7 @@ const processFile = async (file, slugifyApproach) => {
     const absoluteImageLinks = [];
     const relativeImageLinks = [];
     const unHandledLinkTypes = [];
+    const allErrors = [];
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const heading = processHeading(line, slugifyApproach);
@@ -208,6 +209,7 @@ const processFile = async (file, slugifyApproach) => {
       absoluteImageLinks,
       relativeImageLinks,
       unHandledLinkTypes,
+      allErrors,
     };
   } catch (err) {
     console.error(`Error processing file ${file}: ${err.message}`);
@@ -235,6 +237,9 @@ const processDirectory = async (dir, slugifyApproach) => {
 };
 
 function processRelativeLinks(results) {
+  if (!results.allErrors) {
+    results["allErrors"] = [];
+  }
   results.forEach((page, index, array) => {
     //console.log(page);
 
@@ -252,13 +257,16 @@ function processRelativeLinks(results) {
         ) {
           //do nothing - we're good
         } else {
-          console.log(
-            `ERROR: ${page_rel_path}: Missing local anchor [${link.linkText}](#${link.linkAnchor})`
-          );
-          /*
-          console.log(`DEBUG: Anchor: BB${link.linkAnchor}BB - AutoHeadingAnchors BB${page.anchors_auto_headings}BB`);
-          console.log(page.anchors_auto_headings);
-          */
+          const error = {
+            type: "InternalLocalMissingAnchor",
+            page: `${page.page_file}`,
+            linkAnchor: `${link.linkAnchor}`,
+            linkText: `${link.linkText}`,
+          };
+
+          results.allErrors.push(error);
+          //console.log(error);
+          //console.log( `ERROR: ${page_rel_path}: Missing local anchor [${link.linkText}](#${link.linkAnchor})` );
         }
       } else {
         // relative link on another page.
@@ -297,9 +305,15 @@ function processRelativeLinks(results) {
               ) || null;
 
             if (linkedHTMLFile) {
-              console.log(
-                `: ${page_rel_path}: WARN: Link to .html not .md '${link.linkUrl}' with text '${link.linkText}' (${linkAbsoluteFilePath} )`
-              );
+              const error = {
+                type: "InternalLinkToHTML",
+                page: `${page.page_file}`,
+                linkUrl: `${link.linkUrl}`,
+                linkText: `${link.linkText}`,
+                linkUrlFilePath: `${linkAbsoluteFilePath}`,
+              };
+              results.allErrors.push(error);
+              // console.log(`: ${page_rel_path}: WARN: Link to .html not .md '${link.linkUrl}' with text '${link.linkText}' (${linkAbsoluteFilePath} )` );
               linkedFile = linkedHTMLFile;
             }
           }
@@ -307,9 +321,15 @@ function processRelativeLinks(results) {
 
         if (!linkedFile) {
           //File not found as .html or md
-          console.log(
-            `ERROR: ${page_rel_path}: ERROR Broken rel. link '${link.linkUrl}' with text '${link.linkText}' (${linkAbsoluteFilePath} )`
-          );
+          const error = {
+            type: "InternalLinkMissingFile",
+            page: `${page.page_file}`,
+            linkUrl: `${link.linkUrl}`,
+            linkText: `${link.linkText}`,
+            linkUrlFilePath: `${linkAbsoluteFilePath}`,
+          };
+          results.allErrors.push(error);
+          // console.log(`ERROR: ${page_rel_path}: ERROR Broken rel. link '${link.linkUrl}' with text '${link.linkText}' (${linkAbsoluteFilePath} )` );
         } else {
           // There is a link, so now see if there are anchors, and whether they work
           if (!link.linkAnchor) {
@@ -327,10 +347,16 @@ function processRelativeLinks(results) {
             const link_rel_path = linkedFile.page_file.split(
               options.directory
             )[1];
-
-            console.log(
-              `WARN: ${page_rel_path}: Missing anchor \`${link.linkAnchor}\` linked in '${link_rel_path}' (linktext '${link.linkText}')`
-            );
+            const error = {
+              type: "InternalMissingAnchor",
+              page: `${page.page_file}`,
+              linkAnchor: `${link.linkAnchor}`,
+              linkUrl: `${link.linkUrl}`,
+              linkText: `${link.linkText}`,
+              linkUrlFilePath: `${linkAbsoluteFilePath}`,
+            };
+            results.allErrors.push(error);
+            //console.log( `WARN: ${page_rel_path}: Missing anchor \`${link.linkAnchor}\` linked in '${link_rel_path}' (linkText '${link.linkText}')` );
             //console.log(`ERRORS CAUSED BY INCORRECT GUESS ABOUT FORMAT OF / in the new URL - e.g. mounting/orientation`)
           }
         }
@@ -339,14 +365,83 @@ function processRelativeLinks(results) {
   });
 }
 
+function outputResults(results) {
+  //console.log(results.allErrors);
+
+  //Sort results by page and type.
+  // Perhaps next step is to create only get info for paricular pages.
+  const sortedByPageErrors = {};
+  for (const error of results.allErrors) {
+    //console.log("error:");
+    //console.log(error);
+    //console.log(error.page);
+    if (!sortedByPageErrors[error.page]) {
+      sortedByPageErrors[error.page] = [];
+    }
+    sortedByPageErrors[error.page].push(error);
+
+    // Sort by type as well.
+    for (const page in sortedByPageErrors) {
+      sortedByPageErrors[page].sort((a, b) => a.type.localeCompare(b.type));
+    }
+  }
+
+  //console.log(sortedByPageErrors);
+  for (page in sortedByPageErrors) {
+    console.log(`${page}`);
+    for (const error of sortedByPageErrors[page]) {
+      if (error.type == "InternalLinkMissingFile") {
+        console.log(`  ${error.type}: ${error.linkUrl}`);
+        //console.log(`  ${error.type}: ${error.linkAnchor}, linkURL: ${error.linkUrl}`);
+        // { "type": "InternalLinkMissingFile", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}` };
+      } else if (error.type == "InternalLocalMissingAnchor") {
+        // missing anchor in linked file that exists.
+        //console.log(error);
+        console.log(
+          `  ${error.type}: #${error.linkAnchor} (not found in current file)`
+        );
+        //console.log(`  ${error.type}: #${error.linkAnchor} (heading/anchor missing?)`);
+        //console.log(`  #${error.linkAnchor} - Internal anchor not found`);
+        //console.log(`  [${error.linkText}](#${error.linkAnchor}) - Anchor not found`);
+        //console.log(`  Internal anchor not found: #${error.linkAnchor} `);
+        // `{ "type": "InternalLocalMissingAnchor", "page": "${page.page_file}", "anchor": "${link.linkAnchor}", "linktext", "${link.linkText}"  }`;
+      } else if (error.type == "InternalMissingAnchor") {
+        // missing anchor in linked file that exists.
+        //console.log(error);
+        console.log(
+          `  ${error.type}: #${error.linkAnchor} not found in ${error.linkUrlFilePath}`
+        );
+        //console.log(`  ${error.type}: #${error.linkAnchor} (heading/anchor missing?)`);
+        //console.log(`  #${error.linkAnchor} - Internal anchor not found`);
+        //console.log(`  [${error.linkText}](#${error.linkAnchor}) - Anchor not found`);
+        //console.log(`  Internal anchor not found: #${error.linkAnchor} `);
+        // { "type": "InternalMissingAnchor", "page": `${page.page_file}`, "linkAnchor": `${link.linkAnchor}`, "linkUrl": `${link.linkUrl}`, "linktext": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}` };
+      } else if (error.type == "InternalLinkToHTML") {
+        console.log(`  ${error.type}: ${error.linkUrl} (should be ".md"?)`);
+        //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
+        // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
+      } else {
+        console.log(error);
+      }
+    }
+    //console.log(page)
+    //console.log(page.errors);
+  }
+}
+
 (async () => {
   const results = await processDirectory(
     options.directory,
     options.headingAnchorSlugify
   );
-  //console.log(JSON.stringify(results, null, 2));
 
   processRelativeLinks(results);
+  outputResults(results);
+
+  //console.log(JSON.stringify(results, null, 2));
+  //console.log("AllErrors");
+
+  //console.log(JSON.stringify(results.allErrors, null, 2));
 })();
 
 //OpenQuestions
