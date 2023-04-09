@@ -1,5 +1,7 @@
 # markdown link checker sc
 
+ALPHA - Mostly just attempting better handling of internal links.
+
 Markdown link checker in node.
 Better handling of internal link checking.
 

@@ -6,6 +6,10 @@
   "scripts": {
     "test": "test"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hamishwillee/markdown_link_checker_sc.git"
+  },
   "keywords": [
     "link",
     "checker",
@@ -13,6 +17,10 @@
   ],
   "author": "Hamish Willee",
   "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/hamishwillee/markdown_link_checker_sc/issues"
+  },
+  "homepage": "https://github.com/hamishwillee/markdown_link_checker_sc#readme",
   "dependencies": {
     "commander": "^10.0.0"
   }
