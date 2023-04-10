@@ -20,7 +20,15 @@ program
     "Try a markdown file extension check if a link to HTML fails.",
     true
   )
+  .option(
+    "-f, --files <files...>",
+    "List of files to process (path relative to -d). Default is all files.",
+    []
+  )
   .parse(process.argv);
+
+// TODO PX4 special parsing - errors or pages we exclude by default.
+// Particular error types on particular pages?
 
 const options = program.opts();
 
@@ -368,10 +376,35 @@ function processRelativeLinks(results) {
 function outputResults(results) {
   //console.log(results.allErrors);
 
+  // Strip out any files that are not in options.files
+  // if this is empty skip step
+  // These are path relative, so we will need to
+  //console.log(`File options: ${options.files}`);
+
+  let resultsForSpecifiedFiles=results.allErrors;
+  if (options.files.length > 0) {
+    resultsForSpecifiedFiles = results.allErrors.filter((error) => {
+      //console.log(`Error: ${error}`);
+      //console.log(JSON.stringify(error, null, 2));
+      //console.log(`Error page: ${error.page}`);
+      //Strip off the directory prefix for comparison to passed values (which must not start with / or \)
+      let pathOnly = error.page.split(options.directory)[1];
+      if (pathOnly.startsWith("/") || pathOnly.startsWith("\\")) {
+        pathOnly = pathOnly.slice(1);
+      }
+      //console.log(`Pathonly: ${pathOnly}`);
+      return options.files.includes(pathOnly); 
+    });
+
+    console.log(resultsForSpecifiedFiles);
+  } 
+
   //Sort results by page and type.
-  // Perhaps next step is to create only get info for paricular pages.
+  // Perhaps next step is to create only get info for particular pages.
   const sortedByPageErrors = {};
-  for (const error of results.allErrors) {
+  
+  //for (const error of results.allErrors) {
+  for (const error of resultsForSpecifiedFiles) {  //Report errors for listed pages or all
     //console.log("error:");
     //console.log(error);
     //console.log(error.page);
