@@ -1,6 +1,6 @@
 {
   "name": "markdown_link_checker_sc",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Markdown Link Checker",
   "main": "index.js",
   "scripts": {
@@ -12,7 +12,7 @@
     "markdown"
   ],
   "bin": {
-    "markdown_link_checker_sc": "index.js"
+    "markdown_link_checker_sc": "./index.js"
   },
   "author": "Hamish Willee",
   "license": "MIT",
