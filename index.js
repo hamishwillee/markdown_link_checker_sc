@@ -36,6 +36,9 @@ const options = program.opts();
 if (options.log == "quick") {
   console.log(options.files);
 }
+for (const file of options.files) {
+  console.log(file)
+}
 
 const isMarkdown = (file) => path.extname(file).toLowerCase() === ".md";
 const isHtml = (file) => path.extname(file).toLowerCase() === ".html";
