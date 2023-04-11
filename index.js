@@ -20,6 +20,7 @@ program
     "Try a markdown file extension check if a link to HTML fails.",
     true
   )
+  .option("-l, --log [value]", "Export some logs for debugging. ", false)
   .option(
     "-f, --files <files...>",
     "List of files to process (path relative to -d). Default is all files.",
@@ -31,6 +32,10 @@ program
 // Particular error types on particular pages?
 
 const options = program.opts();
+
+if (options.log == "quick") {
+  console.log(options.files);
+}
 
 const isMarkdown = (file) => path.extname(file).toLowerCase() === ".md";
 const isHtml = (file) => path.extname(file).toLowerCase() === ".html";
@@ -373,17 +378,12 @@ function processRelativeLinks(results) {
   });
 }
 
-function outputResults(results) {
-  //console.log(results.allErrors);
-
-  // Strip out any files that are not in options.files
-  // if this is empty skip step
-  // These are path relative, so we will need to
-  //console.log(`File options: ${options.files}`);
-
-  let resultsForSpecifiedFiles=results.allErrors;
+function filterErrors(errors) {
+  // This method filters all errors against settings in the command line - such as pages to output.
+  let filteredErrors = errors;
+  // Filter results on specified file names (if any specified)
   if (options.files.length > 0) {
-    resultsForSpecifiedFiles = results.allErrors.filter((error) => {
+    filteredErrors = errors.filter((error) => {
       //console.log(`Error: ${error}`);
       //console.log(JSON.stringify(error, null, 2));
       //console.log(`Error page: ${error.page}`);
@@ -393,18 +393,31 @@ function outputResults(results) {
         pathOnly = pathOnly.slice(1);
       }
       //console.log(`Pathonly: ${pathOnly}`);
-      return options.files.includes(pathOnly); 
+      return options.files.includes(pathOnly);
     });
+  }
+  // Filter on other things - such as errors.
 
-    //console.log(resultsForSpecifiedFiles);
-  } 
+  //console.log(filteredErrors);
+  return filteredErrors;
+}
+
+
+function outputErrors(results) {
+  //console.log(results.allErrors);
+
+  // Strip out any files that are not in options.files
+  // if this is empty skip step
+  // These are path relative, so we will need to
+  //console.log(`File options: ${options.files}`);
 
   //Sort results by page and type.
   // Perhaps next step is to create only get info for particular pages.
   const sortedByPageErrors = {};
-  
+
   //for (const error of results.allErrors) {
-  for (const error of resultsForSpecifiedFiles) {  //Report errors for listed pages or all
+  for (const error of results) {
+    //Report errors for listed pages or all
     //console.log("error:");
     //console.log(error);
     //console.log(error.page);
@@ -469,12 +482,14 @@ function outputResults(results) {
   );
 
   processRelativeLinks(results);
-  outputResults(results);
+  const filteredResults = filterErrors(results.allErrors);
+  outputErrors(filteredResults);
 
   //console.log(JSON.stringify(results, null, 2));
   //console.log("AllErrors");
-
-  //console.log(JSON.stringify(results.allErrors, null, 2));
+  if (options.log == "allerrors") {
+    console.log(JSON.stringify(results.allErrors, null, 2));
+  }
 })();
 
 //OpenQuestions
