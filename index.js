@@ -34,10 +34,9 @@ program
 const options = program.opts();
 
 if (options.log == "quick") {
-  console.log(options.files);
-}
-for (const file of options.files) {
-  console.log(file)
+  for (const file of options.files) {
+    console.log(file);
+  }
 }
 
 const isMarkdown = (file) => path.extname(file).toLowerCase() === ".md";
@@ -404,7 +403,6 @@ function filterErrors(errors) {
   //console.log(filteredErrors);
   return filteredErrors;
 }
-
 
 function outputErrors(results) {
   //console.log(results.allErrors);
