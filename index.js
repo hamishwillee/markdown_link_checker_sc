@@ -396,7 +396,7 @@ function outputResults(results) {
       return options.files.includes(pathOnly); 
     });
 
-    console.log(resultsForSpecifiedFiles);
+    //console.log(resultsForSpecifiedFiles);
   } 
 
   //Sort results by page and type.
