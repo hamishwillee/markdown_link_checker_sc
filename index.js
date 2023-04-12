@@ -22,9 +22,14 @@ program
   )
   .option("-l, --log [value]", "Export some logs for debugging. ", false)
   .option(
-    "-f, --files <files...>",
-    "List of files to process (path relative to -d). Default is all files.",
-    []
+    "-f, --files <path>",
+    "JSON file with array of files to report on (default is all files). Paths are relative relative to -d by default, but -r can be used to set a different root.",
+    ""
+  )
+  .option(
+    "-r, --root <path>",
+    "Directory to prepend before file paths in the JSON directory. Default is same as directory. Useful if directory is not your repo root",
+    ""
   )
   .parse(process.argv);
 
@@ -33,9 +38,22 @@ program
 
 const options = program.opts();
 
-if (options.log == "quick") {
-  for (const file of options.files) {
-    console.log(file);
+// Function for loading JSON file that contains files to report on
+async function loadJSONFileToReportOn(filePath) {
+  try {
+    const fileContent = await fs.promises.readFile(filePath, "utf8");
+    let filesArray = JSON.parse(fileContent);
+    // Values default to option directory if not specified
+    if (!options.root) {
+      options.root = options.directory;
+    }
+    // Prepend the full path.
+    filesArray = filesArray.map((str) => path.join(options.root, str));
+    //console.log(filesArray);
+    return filesArray;
+  } catch (error) {
+    console.error(`Error reading file: ${error.message}`);
+    process.exit(1);
   }
 }
 
@@ -384,18 +402,14 @@ function filterErrors(errors) {
   // This method filters all errors against settings in the command line - such as pages to output.
   let filteredErrors = errors;
   // Filter results on specified file names (if any specified)
+  console.log(`Number pages to filter: ${options.files.length}`);
   if (options.files.length > 0) {
     filteredErrors = errors.filter((error) => {
       //console.log(`Error: ${error}`);
       //console.log(JSON.stringify(error, null, 2));
       //console.log(`Error page: ${error.page}`);
-      //Strip off the directory prefix for comparison to passed values (which must not start with / or \)
-      let pathOnly = error.page.split(options.directory)[1];
-      if (pathOnly.startsWith("/") || pathOnly.startsWith("\\")) {
-        pathOnly = pathOnly.slice(1);
-      }
-      //console.log(`Pathonly: ${pathOnly}`);
-      return options.files.includes(pathOnly);
+
+      return options.files.includes(error.page);
     });
   }
   // Filter on other things - such as errors.
@@ -477,6 +491,17 @@ function outputErrors(results) {
 }
 
 (async () => {
+  options.files
+    ? (options.files = await loadJSONFileToReportOn(options.files))
+    : (options.files = []);
+  if (options.log == "quick") {
+    for (const file of options.files) {
+      console.log(file);
+    }
+  }
+
+  //const object = filesToProcessJSONFilePath ? await convertFileToObject(filePath) : [];
+
   const results = await processDirectory(
     options.directory,
     options.headingAnchorSlugify
