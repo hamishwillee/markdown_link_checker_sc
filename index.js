@@ -402,7 +402,7 @@ function filterErrors(errors) {
   // This method filters all errors against settings in the command line - such as pages to output.
   let filteredErrors = errors;
   // Filter results on specified file names (if any specified)
-  console.log(`Number pages to filter: ${options.files.length}`);
+  //console.log(`Number pages to filter: ${options.files.length}`);
   if (options.files.length > 0) {
     filteredErrors = errors.filter((error) => {
       //console.log(`Error: ${error}`);
@@ -452,14 +452,14 @@ function outputErrors(results) {
     console.log(`${page}`);
     for (const error of sortedByPageErrors[page]) {
       if (error.type == "InternalLinkMissingFile") {
-        console.log(`  ${error.type}: ${error.linkUrl}`);
+        console.log(`- ${error.type}: ${error.linkUrl}`);
         //console.log(`  ${error.type}: ${error.linkAnchor}, linkURL: ${error.linkUrl}`);
         // { "type": "InternalLinkMissingFile", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}` };
       } else if (error.type == "InternalLocalMissingAnchor") {
         // missing anchor in linked file that exists.
         //console.log(error);
         console.log(
-          `  ${error.type}: #${error.linkAnchor} (not found in current file)`
+          `- ${error.type}: #${error.linkAnchor} (not found in current file)`
         );
         //console.log(`  ${error.type}: #${error.linkAnchor} (heading/anchor missing?)`);
         //console.log(`  #${error.linkAnchor} - Internal anchor not found`);
@@ -470,7 +470,7 @@ function outputErrors(results) {
         // missing anchor in linked file that exists.
         //console.log(error);
         console.log(
-          `  ${error.type}: #${error.linkAnchor} not found in ${error.linkUrlFilePath}`
+          `- ${error.type}: #${error.linkAnchor} not found in ${error.linkUrlFilePath}`
         );
         //console.log(`  ${error.type}: #${error.linkAnchor} (heading/anchor missing?)`);
         //console.log(`  #${error.linkAnchor} - Internal anchor not found`);
@@ -478,7 +478,7 @@ function outputErrors(results) {
         //console.log(`  Internal anchor not found: #${error.linkAnchor} `);
         // { "type": "InternalMissingAnchor", "page": `${page.page_file}`, "linkAnchor": `${link.linkAnchor}`, "linkUrl": `${link.linkUrl}`, "linktext": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}` };
       } else if (error.type == "InternalLinkToHTML") {
-        console.log(`  ${error.type}: ${error.linkUrl} (should be ".md"?)`);
+        console.log(`- ${error.type}: ${error.linkUrl} (should be ".md"?)`);
         //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
         // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
       } else {
