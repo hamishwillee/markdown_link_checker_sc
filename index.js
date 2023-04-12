@@ -11,7 +11,7 @@ program
     process.cwd()
   )
   .option(
-    "-h, --headingAnchorSlugify [value]",
+    "-s, --headingAnchorSlugify [value]",
     "Slugify approach for turning markdown headings into heading anchors. Currently support vuepress only and always",
     "vuepress"
   )
@@ -449,7 +449,7 @@ function outputErrors(results) {
 
   //console.log(sortedByPageErrors);
   for (page in sortedByPageErrors) {
-    console.log(`${page}`);
+    console.log(`\n${page}`);
     for (const error of sortedByPageErrors[page]) {
       if (error.type == "InternalLinkMissingFile") {
         console.log(`- ${error.type}: ${error.linkUrl}`);
