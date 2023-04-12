@@ -449,7 +449,8 @@ function outputErrors(results) {
 
   //console.log(sortedByPageErrors);
   for (page in sortedByPageErrors) {
-    console.log(`\n${page}`);
+    const pageFromRoot = page.split(options.root)[1];
+    console.log(`\n${pageFromRoot}`);
     for (const error of sortedByPageErrors[page]) {
       if (error.type == "InternalLinkMissingFile") {
         console.log(`- ${error.type}: ${error.linkUrl}`);
