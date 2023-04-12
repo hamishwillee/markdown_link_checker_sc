@@ -43,12 +43,14 @@ async function loadJSONFileToReportOn(filePath) {
   try {
     const fileContent = await fs.promises.readFile(filePath, "utf8");
     let filesArray = JSON.parse(fileContent);
-    // Values default to option directory if not specified
-    if (!options.root) {
-      options.root = options.directory;
+    // Prepend the full path - either from root or directory
+    if (options.root) {
+      filesArray = filesArray.map((str) => path.join(options.root, str));
+    } else {
+      //
+      filesArray = filesArray.map((str) => path.join(options.directory, str));
     }
-    // Prepend the full path.
-    filesArray = filesArray.map((str) => path.join(options.root, str));
+
     //console.log(filesArray);
     return filesArray;
   } catch (error) {
@@ -449,7 +451,13 @@ function outputErrors(results) {
 
   //console.log(sortedByPageErrors);
   for (page in sortedByPageErrors) {
-    const pageFromRoot = page.split(options.root)[1];
+    let pageFromRoot;
+    if (options.root) {
+      pageFromRoot = page.split(options.root)[1];
+    } else {
+      pageFromRoot = page.split(options.directory)[1];
+    }
+
     console.log(`\n${pageFromRoot}`);
     for (const error of sortedByPageErrors[page]) {
       if (error.type == "InternalLinkMissingFile") {
@@ -460,8 +468,12 @@ function outputErrors(results) {
         // missing anchor in linked file that exists.
         //console.log(error);
         console.log(
-          `- ${error.type}: #${error.linkAnchor} (not found in current file)`
+          `- ${error.type}: ` +
+            "`[" +
+            `${error.linkText}](#${error.linkAnchor})` +
+            "` (Internal link without matching heading name or element id)"
         );
+        //console.log(          `- ${error.type}: #${error.linkAnchor} (Internal link without matching heading name or element id)`        );
         //console.log(`  ${error.type}: #${error.linkAnchor} (heading/anchor missing?)`);
         //console.log(`  #${error.linkAnchor} - Internal anchor not found`);
         //console.log(`  [${error.linkText}](#${error.linkAnchor}) - Anchor not found`);
