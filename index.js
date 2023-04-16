@@ -1,8 +1,17 @@
 #!/usr/bin/env node
 
-const fs = require("fs");
-const path = require("path");
-const { program } = require("commander");
+//const fs = require("fs");
+import fs from "fs";
+import path from "path";
+//const path = require("path");
+import { program } from 'commander';
+//const { program } = require("commander");
+import { logToFile } from "./src/helpers.js";
+import { outputErrors } from "./src/output_errors.js";
+
+import { slugifyVuepress } from "./src/slugify.js";
+import { processMarkdown } from "./src/process_markdown.js";
+
 
 program
   .option(
@@ -11,7 +20,7 @@ program
     process.cwd()
   )
   .option(
-    "-s, --headingAnchorSlugify [value]",
+    "-c, --headingAnchorSlugify [value]",
     "Slugify approach for turning markdown headings into heading anchors. Currently support vuepress only and always",
     "vuepress"
   )
@@ -20,7 +29,10 @@ program
     "Try a markdown file extension check if a link to HTML fails.",
     true
   )
-  .option("-l, --log [value]", "Export some logs for debugging. ", false)
+  .option(
+    "-l, --log <types...>",
+    "Export logs for debugging. Types: allerrors, filterederrors, allresults etc."
+  )
   .option(
     "-f, --files <path>",
     "JSON file with array of files to report on (default is all files). Paths are relative relative to -d by default, but -r can be used to set a different root.",
@@ -31,12 +43,17 @@ program
     "Directory to prepend before file paths in the JSON directory. Default is same as directory. Useful if directory is not your repo root",
     ""
   )
+  .option(
+    "-s, --toc [value]",
+    "full filename of TOC/Summary file in file system. If not specified, inferred from file with most links to other files"
+  )
   .parse(process.argv);
 
 // TODO PX4 special parsing - errors or pages we exclude by default.
 // Particular error types on particular pages?
 
 const options = program.opts();
+options.log ? null : (options.log = []);
 
 // Function for loading JSON file that contains files to report on
 async function loadJSONFileToReportOn(filePath) {
@@ -64,188 +81,27 @@ const isHtml = (file) => path.extname(file).toLowerCase() === ".html";
 const replaceDelimiter = (str, underscore) =>
   underscore ? str.replace(/\s+/g, "_") : str.replace(/\s+/g, "-");
 
-function slugifyVuepress(str) {
-  const slug = str
-    .toLowerCase()
-    .replace(/\/+/g, "-") // replace / with hyphens
-    .replace(/[^A-Za-z0-9/]+/g, "-") // replace non-word characters except / with hyphens
-    .replace(/[\s_-]+/g, "-") // Replace spaces and underscores with hyphens
-    .replace(/^-+|-+$/g, ""); // Remove extra hyphens from the beginning or end of the string
 
-  if (str.includes("/")) {
-    //console.log(`DEBUG: SLUG: str: ${str} slug: ${slug}`);
-  }
-  return `${slug}`;
-}
-
-const processHeading = (line, slugifyApproach) => {
-  const matches = line.match(/^#+\s+(.+)$/);
-  if (matches) {
-    //slugifyApproach is currently only slugifyVuepress so we do no test.
-    return slugifyVuepress(matches[1]);
-  }
-  return null;
-};
-
-const processMarkdownLink = (
-  line,
-  relativeLinks,
-  relativeImageLinks,
-  absoluteLinks,
-  absoluteImageLinks,
-  unHandledLinkTypes
-) => {
-  const matches = line.matchAll(/([!@]?)\[([^\]]+)\]\((\S+?)\)/g);
-
-  // TODO - THIS matches @[youtube](gjHj6YsxcZk) valid link which is used for vuepress plugin URLs. We probably want to exclude it and deal with it separately
-  // Maybe a backwards lookup on @
-  // Not sure if we can generalize
-
-  for (const match of matches) {
-    const isMarkdownImageLink = match[1] == "!" ? true : false;
-    const isVuepressYouTubeLink = match[1] == "@" ? true : false;
-
-    const linkText = match[2];
-    let linkUrl = match[3];
-    const linkAnchorSplit = linkUrl.split("#");
-    linkUrl = linkAnchorSplit[0].trim();
-    const linkAnchor = linkAnchorSplit[1] ? linkAnchorSplit[1] : null;
-
-    const link = { linkText, linkUrl, linkAnchor };
-
-    if (isVuepressYouTubeLink) {
-      if (linkUrl.startsWith("http")) {
-        absoluteLinks.push(link);
-      } else {
-        unHandledLinkTypes.push(link); // Not going to handle this (yet)
-        // TODO - prepend the standard URL
-      }
-    } else if (linkUrl.startsWith("http")) {
-      isMarkdownImageLink
-        ? absoluteImageLinks.push(link)
-        : absoluteLinks.push(link);
-    } else if (
-      linkUrl.startsWith("ftp:") ||
-      linkUrl.startsWith("ftps") ||
-      linkUrl.startsWith("mailto")
-    ) {
-      // One of the types we specifically do not handle
-      unHandledLinkTypes.push(link);
-    } else if (
-      linkUrl.endsWith(".png") ||
-      linkUrl.endsWith(".jpg") ||
-      linkUrl.endsWith(".jpeg") ||
-      linkUrl.endsWith(".gif") ||
-      linkUrl.endsWith(".webp")
-    ) {
-      //console.log("???Markdown");
-      //Catch case where image link is inside
-      relativeImageLinks.push(link);
-    } else {
-      isMarkdownImageLink
-        ? relativeImageLinks.push(link)
-        : relativeLinks.push(link);
-    }
-  }
-
-  //Match for html img and a - append to the lists
-  const regexHTMLLinks =
-    /<(a|img)[^>]*(href|src)="([^"]+)"[^>]*(?:title="([^"]+)"|>([^<]+)<\/\1>)/gi;
-
-  for (const match of line.matchAll(regexHTMLLinks)) {
-    const isMarkdownImageLink = match[1] == "img" ? true : false;
-    //const tagType = match[1];
-    //const hrefOrSrc = match[2];
-    let linkUrl = match[3];
-    const linkText = match[4] || match[5] || "";
-    const linkAnchorSplit = linkUrl.split("#");
-    linkUrl = linkAnchorSplit[0];
-    const linkAnchor = linkAnchorSplit[1] ? linkAnchorSplit[1] : null;
-    const link = { linkText, linkUrl, linkAnchor };
-
-    if (linkUrl.startsWith("http")) {
-      isMarkdownImageLink
-        ? absoluteImageLinks.push(link)
-        : absoluteLinks.push(link);
-    } else {
-      isMarkdownImageLink
-        ? relativeImageLinks.push(link)
-        : relativeLinks.push(link);
-    }
-  }
-
-  return {
-    relativeLinks,
-    absoluteLinks,
-    absoluteImageLinks,
-    relativeImageLinks,
-  };
-};
 
 const processFile = async (file, slugifyApproach) => {
   try {
     const contents = await fs.promises.readFile(file, "utf8");
-    const lines = contents.split(/\r?\n/);
-    const anchors = [];
-    const htmlAnchors = []; //{};
-    const relativeLinks = [];
-    const absoluteLinks = [];
-    const absoluteImageLinks = [];
-    const relativeImageLinks = [];
-    const unHandledLinkTypes = [];
-    const allErrors = [];
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const heading = processHeading(line, slugifyApproach);
-      if (heading) {
-        anchors.push(heading);
-      }
+    const resultsForFile = processMarkdown(contents);
+    resultsForFile['page_file']=file;
+    
+    // Call slugify slugifyVuepress() on each of the headings
+    // Update resultsForFile[''] with values
+    // return slugifyVuepress(matches[1]);
+    const anchorArray = [];
+    resultsForFile.headings.forEach( (item) => {
+      anchorArray.push(slugifyVuepress(item))
+    });
+    resultsForFile['anchors_auto_headings'] = anchorArray
+    console.log(resultsForFile);
+    
+    return (resultsForFile);
+    
 
-      const links = processMarkdownLink(
-        line,
-        relativeLinks,
-        relativeImageLinks,
-        absoluteLinks,
-        absoluteImageLinks,
-        unHandledLinkTypes
-      );
-    }
-
-    const htmlTagsWithIdsMatches = contents.match(
-      /<([a-z]+)(?:\s+[^>]*?\bid=(["'])(.*?)\2[^>]*?)?>/gi
-    );
-    if (htmlTagsWithIdsMatches) {
-      htmlTagsWithIdsMatches.forEach((match) => {
-        const tagMatches = match.match(/^<([a-z]+)/i);
-        const idMatches = match.match(/id=(["'])(.*?)\1/);
-        if (tagMatches && idMatches) {
-          const tag = tagMatches[1].toLowerCase();
-          const id = idMatches[2];
-
-          if (tag && id) {
-            /*
-            if (!htmlAnchors[tag]) {
-              htmlAnchors[tag] = [];
-            }
-            htmlAnchors[tag].push(id);
-            */
-            htmlAnchors.push(id);
-          }
-        }
-      });
-    }
-
-    return {
-      page_file: file,
-      anchors_auto_headings: anchors,
-      anchors_tag_ids: htmlAnchors,
-      relativeLinks,
-      absoluteLinks,
-      absoluteImageLinks,
-      relativeImageLinks,
-      unHandledLinkTypes,
-      allErrors,
-    };
   } catch (err) {
     console.error(`Error processing file ${file}: ${err.message}`);
     console.error(err);
@@ -271,6 +127,145 @@ const processDirectory = async (dir, slugifyApproach) => {
   return results;
 };
 
+// Gets page with most links. Supposed to be used on the allResults object that is an array of objects about each page.
+// Will use to get the summary.
+function getPageWithMostLinks(pages) {
+  return pages.reduce(
+    (maxLinksPage, currentPage) => {
+      if (
+        currentPage.relativeLinks.length > maxLinksPage.relativeLinks.length
+      ) {
+        return currentPage;
+      } else {
+        return maxLinksPage;
+      }
+    },
+    { relativeLinks: [] }
+  ).page_file;
+}
+
+// Get any orphans (no links from summary and no links at all)
+//
+function checkSummaryOrphans(results) {
+  const resultObj = {};
+  const allInternalAbsLinks = [];
+
+  //Create result object that has page as property
+  // And value is an array of links in/from that page converted to absolute.
+  results.forEach((obj) => {
+    const filePath = obj.page_file;
+    const relativeLinks = obj.relativeLinks;
+    const absLinks = [];
+
+    relativeLinks.forEach((linkObj) => {
+      const linkUrl = linkObj.linkUrl;
+      const absLink = path.resolve(path.dirname(filePath), linkUrl);
+      absLinks.push(absLink);
+      allInternalAbsLinks.push(absLink);
+    });
+
+    resultObj[filePath] = absLinks;
+  });
+
+  // Invert resultObj to get all objects to link to page.
+  // Add the links to to the big results object we process later.
+  const pagesObj = {};
+  for (const [page, links] of Object.entries(resultObj)) {
+    for (const link of links) {
+      if (!pagesObj[link]) {
+        pagesObj[link] = [];
+      }
+      pagesObj[link].push(page);
+    }
+  }
+  results.forEach((obj) => {
+    obj["linkedFrom"] = pagesObj[obj.page_file];
+  });
+
+  // Check that every filepath has at least one object in some absLink that matches it
+  let allFilesReferenced = true;
+  let allFilesSummaryReferenced = true;
+  const allFilesNoReference = [];
+  const allFilesNoSummaryReference = [];
+  results.forEach((obj) => {
+    const filePath = obj.page_file;
+    if (!allInternalAbsLinks.some((absLink) => absLink === filePath)) {
+      if (obj.redirectTo) {
+        //do nothing
+      } else if (obj.page_file === options.toc) {
+        //do nothing
+      } else {
+        //if it a redirect file then it shouldn't be linked.
+        allFilesNoReference.push(filePath);
+        //console.log(`File "${filePath}" not referenced by any absolute link`);
+        const error = {
+          type: "PageNotLinkedInternally",
+          page: `${obj.page_file}`,
+        };
+        results.allErrors.push(error);
+        allFilesReferenced = false;
+      }
+    }
+
+    const summaryFileLinks = resultObj[options.toc];
+
+    if (!summaryFileLinks.some((absLink) => absLink === filePath)) {
+      if (obj.redirectTo) {
+        // do nothing
+      } else if (obj.page_file === options.toc) {
+        //do nothing
+      } else {
+        //if it a redirect file then it shouldn't be linked.
+        allFilesNoSummaryReference.push(filePath);
+        //console.log(`File "${filePath}" not referenced in summary.md`);
+        const error = {
+          type: "PageNotLinkedFromSummary",
+          page: `${obj.page_file}`,
+        };
+        if (!results.allErrors) {
+          results["allErrors"] = [];
+        }
+        results.allErrors.push(error);
+        allFilesSummaryReferenced = false;
+      }
+    }
+  });
+
+  if (!allFilesReferenced) {
+    const jsonAllFilesNotReferenced = JSON.stringify(
+      allFilesNoReference,
+      null,
+      2
+    );
+    logToFile("./logs/allFilesNoReference.json", jsonAllFilesNotReferenced);
+  } else {
+    //console.log("All files referenced at least once");
+  }
+
+  if (!allFilesSummaryReferenced) {
+    const jsonAllFilesNotSummaryReferenced = JSON.stringify(
+      allFilesNoSummaryReference,
+      null,
+      2
+    );
+    logToFile(
+      "./logs/allFilesNoSummaryReference.json",
+      jsonAllFilesNotSummaryReferenced
+    );
+  } else {
+    //console.log("All files referenced at least once");
+  }
+
+  if (options.log.includes("quick")) {
+    //console.log(resultObj);
+    const jsonFilesWithAbsoluteLinks = JSON.stringify(resultObj, null, 2);
+    logToFile(
+      "./logs/pagesResolvedAbsoluteLinks.json",
+      jsonFilesWithAbsoluteLinks
+    );
+  }
+}
+
 function processRelativeLinks(results) {
   if (!results.allErrors) {
     results["allErrors"] = [];
@@ -293,7 +288,7 @@ function processRelativeLinks(results) {
           //do nothing - we're good
         } else {
           const error = {
-            type: "InternalLocalMissingAnchor",
+            type: "LocalMissingAnchor",
             page: `${page.page_file}`,
             linkAnchor: `${link.linkAnchor}`,
             linkText: `${link.linkText}`,
@@ -420,88 +415,8 @@ function filterErrors(errors) {
   return filteredErrors;
 }
 
-function outputErrors(results) {
-  //console.log(results.allErrors);
 
-  // Strip out any files that are not in options.files
-  // if this is empty skip step
-  // These are path relative, so we will need to
-  //console.log(`File options: ${options.files}`);
 
-  //Sort results by page and type.
-  // Perhaps next step is to create only get info for particular pages.
-  const sortedByPageErrors = {};
-
-  //for (const error of results.allErrors) {
-  for (const error of results) {
-    //Report errors for listed pages or all
-    //console.log("error:");
-    //console.log(error);
-    //console.log(error.page);
-    if (!sortedByPageErrors[error.page]) {
-      sortedByPageErrors[error.page] = [];
-    }
-    sortedByPageErrors[error.page].push(error);
-
-    // Sort by type as well.
-    for (const page in sortedByPageErrors) {
-      sortedByPageErrors[page].sort((a, b) => a.type.localeCompare(b.type));
-    }
-  }
-
-  //console.log(sortedByPageErrors);
-  for (page in sortedByPageErrors) {
-    let pageFromRoot;
-    if (options.root) {
-      pageFromRoot = page.split(options.root)[1];
-    } else {
-      pageFromRoot = page.split(options.directory)[1];
-    }
-
-    console.log(`\n${pageFromRoot}`);
-    for (const error of sortedByPageErrors[page]) {
-      if (error.type == "InternalLinkMissingFile") {
-        console.log(`- ${error.type}: ${error.linkUrl}`);
-        //console.log(`  ${error.type}: ${error.linkAnchor}, linkURL: ${error.linkUrl}`);
-        // { "type": "InternalLinkMissingFile", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}` };
-      } else if (error.type == "InternalLocalMissingAnchor") {
-        // missing anchor in linked file that exists.
-        //console.log(error);
-        console.log(
-          `- ${error.type}: ` +
-            "`[" +
-            `${error.linkText}](#${error.linkAnchor})` +
-            "` (Internal link without matching heading name or element id)"
-        );
-        //console.log(          `- ${error.type}: #${error.linkAnchor} (Internal link without matching heading name or element id)`        );
-        //console.log(`  ${error.type}: #${error.linkAnchor} (heading/anchor missing?)`);
-        //console.log(`  #${error.linkAnchor} - Internal anchor not found`);
-        //console.log(`  [${error.linkText}](#${error.linkAnchor}) - Anchor not found`);
-        //console.log(`  Internal anchor not found: #${error.linkAnchor} `);
-        // `{ "type": "InternalLocalMissingAnchor", "page": "${page.page_file}", "anchor": "${link.linkAnchor}", "linktext", "${link.linkText}"  }`;
-      } else if (error.type == "InternalMissingAnchor") {
-        // missing anchor in linked file that exists.
-        //console.log(error);
-        console.log(
-          `- ${error.type}: #${error.linkAnchor} not found in ${error.linkUrlFilePath}`
-        );
-        //console.log(`  ${error.type}: #${error.linkAnchor} (heading/anchor missing?)`);
-        //console.log(`  #${error.linkAnchor} - Internal anchor not found`);
-        //console.log(`  [${error.linkText}](#${error.linkAnchor}) - Anchor not found`);
-        //console.log(`  Internal anchor not found: #${error.linkAnchor} `);
-        // { "type": "InternalMissingAnchor", "page": `${page.page_file}`, "linkAnchor": `${link.linkAnchor}`, "linkUrl": `${link.linkUrl}`, "linktext": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}` };
-      } else if (error.type == "InternalLinkToHTML") {
-        console.log(`- ${error.type}: ${error.linkUrl} (should be ".md"?)`);
-        //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
-        // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
-      } else {
-        console.log(error);
-      }
-    }
-    //console.log(page)
-    //console.log(page.errors);
-  }
-}
 
 (async () => {
   options.files
@@ -521,14 +436,37 @@ function outputErrors(results) {
   );
 
   processRelativeLinks(results);
-  const filteredResults = filterErrors(results.allErrors);
-  outputErrors(filteredResults);
 
-  //console.log(JSON.stringify(results, null, 2));
-  //console.log("AllErrors");
-  if (options.log == "allerrors") {
-    console.log(JSON.stringify(results.allErrors, null, 2));
+  //Can now guess the summary file if not specified
+  options.toc ? null : (options.toc = getPageWithMostLinks(results));
+  checkSummaryOrphans(results);
+  const filteredResults = filterErrors(results.allErrors);
+
+  outputErrors(filteredResults, options);
+
+  //make array and document options? ie. if includes ...
+  const jsonFilteredErrors = JSON.stringify(filteredResults, null, 2);
+  logToFile("./logs/filteredErrors.json", jsonFilteredErrors);
+
+  if (options.log.includes("filterederrors")) {
+    console.log(jsonFilteredErrors);
   }
+
+  //make array and document options? ie. if includes ...
+  const jsonAllResults = JSON.stringify(results, null, 2);
+  logToFile("./logs/allResults.json", jsonAllResults);
+  if (options.log.includes("allresults")) {
+    console.log(jsonAllResults);
+  }
+
+  //make array and document options? ie. if includes ...
+  const jsonAllErrors = JSON.stringify(results.allErrors, null, 2);
+  logToFile("./logs/allErrors.json", jsonAllErrors);
+
+  if (options.log.includes("allerrors")) {
+    console.log(jsonAllErrors);
+  }
+  //console.log(`OPTIONS.LOG ${options.log}`);
 })();
 
 //OpenQuestions
