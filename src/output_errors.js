@@ -29,7 +29,7 @@ function outputErrors(results, options) {
     }
   }
 
-  console.log(sortedByPageErrors);
+  //console.log(sortedByPageErrors);
   for (const page in sortedByPageErrors) {
     let pageFromRoot;
     if (options.root) {

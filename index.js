@@ -4,7 +4,7 @@
 import fs from "fs";
 import path from "path";
 //const path = require("path");
-import { program } from 'commander';
+import { program } from "commander";
 //const { program } = require("commander");
 import { logToFile } from "./src/helpers.js";
 import { outputErrors } from "./src/output_errors.js";
@@ -12,12 +12,16 @@ import { outputErrors } from "./src/output_errors.js";
 import { slugifyVuepress } from "./src/slugify.js";
 import { processMarkdown } from "./src/process_markdown.js";
 
-
 program
   .option(
-    "-d, --directory [directory]",
-    "The directory to search for markdown and html files",
+    "-r, --root <path>",
+    "Root directory of your source (i.e. root of github repo). Use -d as well to specify a folder if docs are not in the root, or to just run on particular subfolder",
     process.cwd()
+  )
+  .option(
+    "-d, --directory [directory]",
+    "The directory to search for markdown and html files, relative to root - such as: `en` for an English subfolder. Default empty (same as -r directory)",
+    ""
   )
   .option(
     "-c, --headingAnchorSlugify [value]",
@@ -38,11 +42,7 @@ program
     "JSON file with array of files to report on (default is all files). Paths are relative relative to -d by default, but -r can be used to set a different root.",
     ""
   )
-  .option(
-    "-r, --root <path>",
-    "Directory to prepend before file paths in the JSON directory. Default is same as directory. Useful if directory is not your repo root",
-    ""
-  )
+
   .option(
     "-s, --toc [value]",
     "full filename of TOC/Summary file in file system. If not specified, inferred from file with most links to other files"
@@ -55,18 +55,28 @@ program
 const options = program.opts();
 options.log ? null : (options.log = []);
 
+const markdownDirectory = path.join(options.root, options.directory);
+console.log(`MARKDOWN DIR ${markdownDirectory}`);
+
+async () => {
+  // Load JSON file containing file paths and reassign as array to the JSON path
+  options.files
+    ? (options.files = await loadJSONFileToReportOn(options.files))
+    : (options.files = []);
+  if (options.log == "quick") {
+    for (const file of options.files) {
+      console.log(file);
+    }
+  }
+};
+
 // Function for loading JSON file that contains files to report on
 async function loadJSONFileToReportOn(filePath) {
   try {
     const fileContent = await fs.promises.readFile(filePath, "utf8");
     let filesArray = JSON.parse(fileContent);
-    // Prepend the full path - either from root or directory
-    if (options.root) {
-      filesArray = filesArray.map((str) => path.join(options.root, str));
-    } else {
-      //
-      filesArray = filesArray.map((str) => path.join(options.directory, str));
-    }
+    // Array relative to root, so update to have full path
+    filesArray = filesArray.map((str) => path.join(options.root, str));
 
     //console.log(filesArray);
     return filesArray;
@@ -81,27 +91,23 @@ const isHtml = (file) => path.extname(file).toLowerCase() === ".html";
 const replaceDelimiter = (str, underscore) =>
   underscore ? str.replace(/\s+/g, "_") : str.replace(/\s+/g, "-");
 
-
-
 const processFile = async (file, slugifyApproach) => {
   try {
     const contents = await fs.promises.readFile(file, "utf8");
     const resultsForFile = processMarkdown(contents);
-    resultsForFile['page_file']=file;
-    
+    resultsForFile["page_file"] = file;
+
     // Call slugify slugifyVuepress() on each of the headings
     // Update resultsForFile[''] with values
     // return slugifyVuepress(matches[1]);
     const anchorArray = [];
-    resultsForFile.headings.forEach( (item) => {
-      anchorArray.push(slugifyVuepress(item))
+    resultsForFile.headings.forEach((item) => {
+      anchorArray.push(slugifyVuepress(item));
     });
-    resultsForFile['anchors_auto_headings'] = anchorArray
-    console.log(resultsForFile);
-    
-    return (resultsForFile);
-    
+    resultsForFile["anchors_auto_headings"] = anchorArray;
+    //console.log(resultsForFile);
 
+    return resultsForFile;
   } catch (err) {
     console.error(`Error processing file ${file}: ${err.message}`);
     console.error(err);
@@ -415,23 +421,12 @@ function filterErrors(errors) {
   return filteredErrors;
 }
 
-
-
-
+//main function, after options et have been set up.
 (async () => {
-  options.files
-    ? (options.files = await loadJSONFileToReportOn(options.files))
-    : (options.files = []);
-  if (options.log == "quick") {
-    for (const file of options.files) {
-      console.log(file);
-    }
-  }
 
-  //const object = filesToProcessJSONFilePath ? await convertFileToObject(filePath) : [];
-
+  // process  containing markdown, return results which includes links, headings, id anchors
   const results = await processDirectory(
-    options.directory,
+    markdownDirectory,
     options.headingAnchorSlugify
   );
 
