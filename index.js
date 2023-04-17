@@ -11,6 +11,8 @@ import { outputErrors } from "./src/output_errors.js";
 
 import { slugifyVuepress } from "./src/slugify.js";
 import { processMarkdown } from "./src/process_markdown.js";
+import { processRelativeLinks } from "./src/process_relative_links.js";
+
 
 program
   .option(
@@ -56,7 +58,10 @@ const options = program.opts();
 options.log ? null : (options.log = []);
 
 const markdownDirectory = path.join(options.root, options.directory);
-console.log(`MARKDOWN DIR ${markdownDirectory}`);
+if (options.log == "quick") {
+  console.log(`MARKDOWN DIR ${markdownDirectory}`);
+}
+
 
 async () => {
   // Load JSON file containing file paths and reassign as array to the JSON path
@@ -272,134 +277,7 @@ function checkSummaryOrphans(results) {
   }
 }
 
-function processRelativeLinks(results) {
-  if (!results.allErrors) {
-    results["allErrors"] = [];
-  }
-  results.forEach((page, index, array) => {
-    //console.log(page);
 
-    page.relativeLinks.forEach((link, index, array) => {
-      //console.log(link);
-      //resolve the path for the link
-      const page_rel_path = page.page_file.split(options.directory)[1];
-      if (link.linkUrl === "") {
-        //page local link - check current page for headings
-        //console.log(link);
-
-        if (
-          page.anchors_auto_headings.includes(link.linkAnchor) ||
-          page.anchors_tag_ids.includes(link.linkAnchor)
-        ) {
-          //do nothing - we're good
-        } else {
-          const error = {
-            type: "LocalMissingAnchor",
-            page: `${page.page_file}`,
-            linkAnchor: `${link.linkAnchor}`,
-            linkText: `${link.linkText}`,
-          };
-
-          results.allErrors.push(error);
-          //console.log(error);
-          //console.log( `ERROR: ${page_rel_path}: Missing local anchor [${link.linkText}](#${link.linkAnchor})` );
-        }
-      } else {
-        // relative link on another page.
-
-        //find the path of the linked page.
-        const linkAbsoluteFilePath = path.resolve(
-          path.dirname(page.page_file),
-          link.linkUrl
-        );
-
-        // Get the matching file matching our link, if it exists
-        let linkedFile =
-          results.find(
-            (linkedFile) =>
-              linkedFile.hasOwnProperty("page_file") &&
-              path.normalize(linkedFile.page_file) === linkAbsoluteFilePath
-          ) || null;
-
-        if (!linkedFile) {
-          if (
-            options.tryMarkdownforHTML &&
-            linkAbsoluteFilePath.endsWith(".html")
-          ) {
-            // The file was HTML so it might be a file extension mistake (linking to html instead of md)
-            // In this case we'll try find it.
-
-            const markdownAbsoluteFilePath = `${
-              linkAbsoluteFilePath.split(".html")[0]
-            }.md`;
-            const linkedHTMLFile =
-              results.find(
-                (linkedHTMLFile) =>
-                  linkedHTMLFile.hasOwnProperty("page_file") &&
-                  path.normalize(linkedHTMLFile.page_file) ===
-                    markdownAbsoluteFilePath
-              ) || null;
-
-            if (linkedHTMLFile) {
-              const error = {
-                type: "InternalLinkToHTML",
-                page: `${page.page_file}`,
-                linkUrl: `${link.linkUrl}`,
-                linkText: `${link.linkText}`,
-                linkUrlFilePath: `${linkAbsoluteFilePath}`,
-              };
-              results.allErrors.push(error);
-              // console.log(`: ${page_rel_path}: WARN: Link to .html not .md '${link.linkUrl}' with text '${link.linkText}' (${linkAbsoluteFilePath} )` );
-              linkedFile = linkedHTMLFile;
-            }
-          }
-        }
-
-        if (!linkedFile) {
-          //File not found as .html or md
-          const error = {
-            type: "InternalLinkMissingFile",
-            page: `${page.page_file}`,
-            linkUrl: `${link.linkUrl}`,
-            linkText: `${link.linkText}`,
-            linkUrlFilePath: `${linkAbsoluteFilePath}`,
-          };
-          results.allErrors.push(error);
-          // console.log(`ERROR: ${page_rel_path}: ERROR Broken rel. link '${link.linkUrl}' with text '${link.linkText}' (${linkAbsoluteFilePath} )` );
-        } else {
-          // There is a link, so now see if there are anchors, and whether they work
-          if (!link.linkAnchor) {
-            //null
-            return;
-          } else if (
-            linkedFile.anchors_auto_headings.includes(link.linkAnchor) ||
-            linkedFile.anchors_tag_ids.includes(link.linkAnchor)
-          ) {
-            //
-            //do nothing - we're good
-          } else {
-            // Link exists, but anchor broken
-
-            const link_rel_path = linkedFile.page_file.split(
-              options.directory
-            )[1];
-            const error = {
-              type: "InternalMissingAnchor",
-              page: `${page.page_file}`,
-              linkAnchor: `${link.linkAnchor}`,
-              linkUrl: `${link.linkUrl}`,
-              linkText: `${link.linkText}`,
-              linkUrlFilePath: `${linkAbsoluteFilePath}`,
-            };
-            results.allErrors.push(error);
-            //console.log( `WARN: ${page_rel_path}: Missing anchor \`${link.linkAnchor}\` linked in '${link_rel_path}' (linkText '${link.linkText}')` );
-            //console.log(`ERRORS CAUSED BY INCORRECT GUESS ABOUT FORMAT OF / in the new URL - e.g. mounting/orientation`)
-          }
-        }
-      }
-    });
-  });
-}
 
 function filterErrors(errors) {
   // This method filters all errors against settings in the command line - such as pages to output.
@@ -430,7 +308,11 @@ function filterErrors(errors) {
     options.headingAnchorSlugify
   );
 
-  processRelativeLinks(results);
+  const errorsFromRelativeLinks = processRelativeLinks(results, options);
+  if (!results.allErrors) {
+    results.allErrors = [];
+  }
+  results["allErrors"].push(...errorsFromRelativeLinks);
 
   //Can now guess the summary file if not specified
   options.toc ? null : (options.toc = getPageWithMostLinks(results));
