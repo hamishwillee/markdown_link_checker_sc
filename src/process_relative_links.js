@@ -90,18 +90,17 @@ function processRelativeLinks(results, options) {
           };
           errors.push(error);
         } else {
-          // There is a link, so now see if there are anchors, and whether they work
-          if (!link.linkAnchor) {
+          // There is a linked file, so now see if there are anchors, and whether they work
+          if (!link.linkAnchor) { // No anchors, so go to next step
             //null
-            return;
-          } else if (
+          } else if ( //List of anchors in linked file includes the anchor
             linkedFile.anchors_auto_headings.includes(link.linkAnchor) ||
             linkedFile.anchors_tag_ids.includes(link.linkAnchor)
           ) {
             //
             //do nothing - we're good
           } else {
-            // Link exists, but anchor broken
+            // File exists but does not contain matching anchor
             const error = {
               type: "InternalMissingAnchor",
               page: `${page.page_file}`,
