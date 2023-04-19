@@ -12,7 +12,7 @@ import { outputErrors } from "./src/output_errors.js";
 import { slugifyVuepress } from "./src/slugify.js";
 import { processMarkdown } from "./src/process_markdown.js";
 import { processRelativeLinks } from "./src/process_relative_links.js";
-
+import { processLocalImageLinks } from "./src/process_local_image_links.js";
 
 program
   .option(
@@ -58,7 +58,7 @@ const options = program.opts();
 options.log ? null : (options.log = []);
 
 const markdownDirectory = path.join(options.root, options.directory);
-if (options.log == "quick") {
+if (options.log == "fast") {
   console.log(`MARKDOWN DIR ${markdownDirectory}`);
 }
 
@@ -121,6 +121,9 @@ const processFile = async (file, slugifyApproach) => {
 };
 
 const processDirectory = async (dir, slugifyApproach) => {
+  if (options.log.includes("functions")) {
+    console.log(`processDirectory(${dir}${slugifyApproach})`);
+  }
   const files = await fs.promises.readdir(dir, { withFileTypes: true });
   const results = [];
   for (let i = 0; i < files.length; i++) {
@@ -141,6 +144,9 @@ const processDirectory = async (dir, slugifyApproach) => {
 // Gets page with most links. Supposed to be used on the allResults object that is an array of objects about each page.
 // Will use to get the summary.
 function getPageWithMostLinks(pages) {
+  if (options.log.includes("functions")) {
+    console.log('Function: getPageWithMostLinks');
+  }
   return pages.reduce(
     (maxLinksPage, currentPage) => {
       if (
@@ -313,6 +319,10 @@ function filterErrors(errors) {
     results.allErrors = [];
   }
   results["allErrors"].push(...errorsFromRelativeLinks);
+
+  const errorsFromLocalImageLinks = await processLocalImageLinks(results, options);
+  //console.log(errorsFromLocalImageLinks)
+  results["allErrors"].push(...errorsFromLocalImageLinks);
 
   //Can now guess the summary file if not specified
   options.toc ? null : (options.toc = getPageWithMostLinks(results));

@@ -5,8 +5,8 @@ const processMarkdown = (contents) => {
   //const anchors = [];
   const htmlAnchors = []; //{};
   const relativeLinks = [];
-  const absoluteLinks = [];
-  const absoluteImageLinks = [];
+  const urlLinks = [];
+  const urlImageLinks = [];
   const relativeImageLinks = [];
   const unHandledLinkTypes = [];
   let redirectTo; //Pages that contain <Redirect to="string"/> links
@@ -40,8 +40,8 @@ const processMarkdown = (contents) => {
         line,
         relativeLinks,
         relativeImageLinks,
-        absoluteLinks,
-        absoluteImageLinks,
+        urlLinks,
+        urlImageLinks,
         unHandledLinkTypes
       );
     }
@@ -71,8 +71,8 @@ const processMarkdown = (contents) => {
     //anchors_auto_headings: anchors,
     anchors_tag_ids: htmlAnchors,
     relativeLinks,
-    absoluteLinks,
-    absoluteImageLinks,
+    urlLinks,
+    urlImageLinks,
     relativeImageLinks,
     unHandledLinkTypes,
     redirectTo,
@@ -87,8 +87,8 @@ const processLineMarkdownLinks = (
   line,
   relativeLinks,
   relativeImageLinks,
-  absoluteLinks,
-  absoluteImageLinks,
+  urlLinks,
+  urlImageLinks,
   unHandledLinkTypes
 ) => {
   const matches = line.matchAll(/([!@]?)\[([^\]]+)\]\((\S+?)\)/g);
@@ -111,15 +111,15 @@ const processLineMarkdownLinks = (
 
     if (isVuepressYouTubeLink) {
       if (linkUrl.startsWith("http")) {
-        absoluteLinks.push(link);
+        urlLinks.push(link);
       } else {
         unHandledLinkTypes.push(link); // Not going to handle this (yet)
         // TODO - prepend the standard URL
       }
     } else if (linkUrl.startsWith("http")) {
       isMarkdownImageLink
-        ? absoluteImageLinks.push(link)
-        : absoluteLinks.push(link);
+        ? urlImageLinks.push(link)
+        : urlLinks.push(link);
     } else if (
       linkUrl.startsWith("ftp:") ||
       linkUrl.startsWith("ftps") ||
@@ -161,8 +161,8 @@ const processLineMarkdownLinks = (
 
     if (linkUrl.startsWith("http")) {
       isMarkdownImageLink
-        ? absoluteImageLinks.push(link)
-        : absoluteLinks.push(link);
+        ? urlImageLinks.push(link)
+        : urlLinks.push(link);
     } else {
       isMarkdownImageLink
         ? relativeImageLinks.push(link)
@@ -172,8 +172,8 @@ const processLineMarkdownLinks = (
 
   return {
     relativeLinks,
-    absoluteLinks,
-    absoluteImageLinks,
+    urlLinks,
+    urlImageLinks,
     relativeImageLinks,
   };
 };
