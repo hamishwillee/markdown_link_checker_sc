@@ -96,10 +96,10 @@ const isHtml = (file) => path.extname(file).toLowerCase() === ".html";
 const replaceDelimiter = (str, underscore) =>
   underscore ? str.replace(/\s+/g, "_") : str.replace(/\s+/g, "-");
 
-const processFile = async (file, slugifyApproach) => {
+const processFile = async (file, options) => {
   try {
     const contents = await fs.promises.readFile(file, "utf8");
-    const resultsForFile = processMarkdown(contents);
+    const resultsForFile = processMarkdown(contents, options);
     resultsForFile["page_file"] = file;
 
     // Call slugify slugifyVuepress() on each of the headings
@@ -120,19 +120,19 @@ const processFile = async (file, slugifyApproach) => {
   }
 };
 
-const processDirectory = async (dir, slugifyApproach) => {
+const processDirectory = async (dir, options) => {
   if (options.log.includes("functions")) {
-    console.log(`processDirectory(${dir}${slugifyApproach})`);
+    console.log(`processDirectory(${dir}, options)`);
   }
   const files = await fs.promises.readdir(dir, { withFileTypes: true });
   const results = [];
   for (let i = 0; i < files.length; i++) {
     const file = path.join(dir, files[i].name);
     if (files[i].isDirectory()) {
-      const subResults = await processDirectory(file, slugifyApproach);
+      const subResults = await processDirectory(file, options);
       results.push(...subResults);
     } else if (isMarkdown(file) || isHtml(file)) {
-      const result = await processFile(file, slugifyApproach);
+      const result = await processFile(file, options);
       if (result) {
         results.push(result);
       }
@@ -311,7 +311,7 @@ function filterErrors(errors) {
   // process  containing markdown, return results which includes links, headings, id anchors
   const results = await processDirectory(
     markdownDirectory,
-    options.headingAnchorSlugify
+    options
   );
 
   const errorsFromRelativeLinks = processRelativeLinks(results, options);

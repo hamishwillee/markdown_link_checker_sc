@@ -1,6 +1,6 @@
 // Returns slug for a string (markdown heading) using Vuepress algorithm.
 // Algorithm from chatgpt - needs testing.
-const processMarkdown = (contents) => {
+const processMarkdown = (contents, options) => {
   const headings = [];
   //const anchors = [];
   const htmlAnchors = []; //{};
