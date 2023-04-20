@@ -1,11 +1,12 @@
 // Returns slug for a string (markdown heading) using Vuepress algorithm.
 // Algorithm from chatgpt - needs testing.
-const processMarkdown = (contents) => {
+const processMarkdown = (contents, options) => {
   const headings = [];
   //const anchors = [];
   const htmlAnchors = []; //{};
   const relativeLinks = [];
   const urlLinks = [];
+  const urlLocalLinks = [];
   const urlImageLinks = [];
   const relativeImageLinks = [];
   const unHandledLinkTypes = [];
@@ -41,8 +42,10 @@ const processMarkdown = (contents) => {
         relativeLinks,
         relativeImageLinks,
         urlLinks,
+        urlLocalLinks,
         urlImageLinks,
-        unHandledLinkTypes
+        unHandledLinkTypes,
+        options
       );
     }
 
@@ -72,6 +75,7 @@ const processMarkdown = (contents) => {
     anchors_tag_ids: htmlAnchors,
     relativeLinks,
     urlLinks,
+    urlLocalLinks,
     urlImageLinks,
     relativeImageLinks,
     unHandledLinkTypes,
@@ -88,8 +92,10 @@ const processLineMarkdownLinks = (
   relativeLinks,
   relativeImageLinks,
   urlLinks,
+  urlLocalLinks,
   urlImageLinks,
-  unHandledLinkTypes
+  unHandledLinkTypes,
+  options
 ) => {
   const matches = line.matchAll(/([!@]?)\[([^\]]+)\]\((\S+?)\)/g);
 
@@ -116,7 +122,13 @@ const processLineMarkdownLinks = (
         unHandledLinkTypes.push(link); // Not going to handle this (yet)
         // TODO - prepend the standard URL
       }
-    } else if (linkUrl.startsWith("http")) {
+    }
+    else if (options.siteurl && (linkUrl.startsWith(`http://${options.siteurl}`) ||(linkUrl.startsWith(`https://${options.siteurl}`)  )) ){
+      // URL self -link to site. Check.
+      console(`LOGLOCAL: ${link}`)
+      urlLocalLinks.push(link);
+    }
+    else if (linkUrl.startsWith("http")) {
       isMarkdownImageLink
         ? urlImageLinks.push(link)
         : urlLinks.push(link);
@@ -159,7 +171,7 @@ const processLineMarkdownLinks = (
     const linkAnchor = linkAnchorSplit[1] ? linkAnchorSplit[1] : null;
     const link = { linkText, linkUrl, linkAnchor };
 
-    if (linkUrl.startsWith("http")) {
+    if (options. linkUrl.startsWith("http")) {
       isMarkdownImageLink
         ? urlImageLinks.push(link)
         : urlLinks.push(link);

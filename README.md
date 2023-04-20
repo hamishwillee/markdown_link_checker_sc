@@ -13,17 +13,23 @@ Current version only does internal link checking
 Usage: markdown_link_checker_sc [options]
 
 Options:
-  -d, --directory [directory]         The directory to search for markdown and html files (default:
-                                      "D:\\github\\hamishwillee\\markdown_link_checker_sc")
-  -s, --headingAnchorSlugify [value]  Slugify approach for turning markdown headings into heading anchors. Currently
+  -r, --root <path>                   Root directory of your source (i.e. root of github repo). Use -d as well to
+                                      specify a folder if docs are not in the root, or to just run on particular
+                                      subfolder (default: "D:\\github\\hamishwillee\\markdown_link_checker_sc")
+  -d, --directory [directory]         The directory to search for markdown and html files, relative to root - such as:
+                                      `en` for an English subfolder. Default empty (same as -r directory) (default: "")
+  -c, --headingAnchorSlugify [value]  Slugify approach for turning markdown headings into heading anchors. Currently
                                       support vuepress only and always (default: "vuepress")
   -t, --tryMarkdownforHTML [value]    Try a markdown file extension check if a link to HTML fails. (default: true)
-  -l, --log [value]                   Export some logs for debugging.  (default: false)
+  -l, --log <types...>                Export logs for debugging. Types: allerrors, filterederrors, allresults etc.
   -f, --files <path>                  JSON file with array of files to report on (default is all files). Paths are
                                       relative relative to -d by default, but -r can be used to set a different root.
                                       (default: "")
-  -r, --root <path>                   Directory to prepend before file paths in the JSON directory. Default is same as
-                                      directory. Useful if directory is not your repo root (default: "")
+  -s, --toc [value]                   full filename of TOC/Summary file in file system. If not specified, inferred from
+                                      file with most links to other files
+  -u, --url <site_root>               Root url of your site like 'developer.example.com'. Used to check for accidental
+                                      absolute links in markdown. (default:
+                                      "D:\\github\\hamishwillee\\markdown_link_checker_sc")
   -h, --help                          display help for command
 ```
 
@@ -41,3 +47,12 @@ The way this works:
 - Finally the output is exported in a markdown friendly output format.
 
 Lots more to do, but this already catches lots of internal errors.
+
+
+## TODO
+
+Lots, in source marked with todo in some case.
+
+- [ ] markdown links like <http://fred ...> - 
+- [ ] markdown links like http://example.com in random source 
+- 
