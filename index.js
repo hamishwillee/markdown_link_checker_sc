@@ -49,6 +49,11 @@ program
     "-s, --toc [value]",
     "full filename of TOC/Summary file in file system. If not specified, inferred from file with most links to other files"
   )
+  .option(
+    "-u, --site_url [value]",
+    "Site base url in form dev.example.com (used to catch absolute urls to local files)"
+  )
+
   .parse(process.argv);
 
 // TODO PX4 special parsing - errors or pages we exclude by default.
@@ -61,7 +66,6 @@ const markdownDirectory = path.join(options.root, options.directory);
 if (options.log == "fast") {
   console.log(`MARKDOWN DIR ${markdownDirectory}`);
 }
-
 
 async () => {
   // Load JSON file containing file paths and reassign as array to the JSON path
@@ -145,7 +149,7 @@ const processDirectory = async (dir, options) => {
 // Will use to get the summary.
 function getPageWithMostLinks(pages) {
   if (options.log.includes("functions")) {
-    console.log('Function: getPageWithMostLinks');
+    console.log("Function: getPageWithMostLinks");
   }
   return pages.reduce(
     (maxLinksPage, currentPage) => {
@@ -283,8 +287,6 @@ function checkSummaryOrphans(results) {
   }
 }
 
-
-
 function filterErrors(errors) {
   // This method filters all errors against settings in the command line - such as pages to output.
   let filteredErrors = errors;
@@ -307,12 +309,8 @@ function filterErrors(errors) {
 
 //main function, after options et have been set up.
 (async () => {
-
   // process  containing markdown, return results which includes links, headings, id anchors
-  const results = await processDirectory(
-    markdownDirectory,
-    options
-  );
+  const results = await processDirectory(markdownDirectory, options);
 
   const errorsFromRelativeLinks = processRelativeLinks(results, options);
   if (!results.allErrors) {
@@ -320,7 +318,10 @@ function filterErrors(errors) {
   }
   results["allErrors"].push(...errorsFromRelativeLinks);
 
-  const errorsFromLocalImageLinks = await processLocalImageLinks(results, options);
+  const errorsFromLocalImageLinks = await processLocalImageLinks(
+    results,
+    options
+  );
   //console.log(errorsFromLocalImageLinks)
   results["allErrors"].push(...errorsFromLocalImageLinks);
 

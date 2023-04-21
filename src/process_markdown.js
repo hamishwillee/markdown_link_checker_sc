@@ -11,8 +11,6 @@ const processMarkdown = (contents, options) => {
   const unHandledLinkTypes = [];
   let redirectTo; //Pages that contain <Redirect to="string"/> links
 
-
-
   // Check if page is a redirect.
   // If it is, add to list then return.
   // Otherwise do other file processing.
@@ -42,7 +40,8 @@ const processMarkdown = (contents, options) => {
         relativeImageLinks,
         urlLinks,
         urlImageLinks,
-        unHandledLinkTypes
+        unHandledLinkTypes,
+        options
       );
     }
 
@@ -80,7 +79,7 @@ const processMarkdown = (contents, options) => {
 };
 
 // Processes line, taking arrays of different link types.
-// Update the incoming values and return 
+// Update the incoming values and return
 // Note, assumption is all links are on one line, not split across lines.
 // This is generally true, but does not have to be.
 const processLineMarkdownLinks = (
@@ -89,7 +88,8 @@ const processLineMarkdownLinks = (
   relativeImageLinks,
   urlLinks,
   urlImageLinks,
-  unHandledLinkTypes
+  unHandledLinkTypes,
+  options
 ) => {
   const matches = line.matchAll(/([!@]?)\[([^\]]+)\]\((\S+?)\)/g);
 
@@ -116,10 +116,14 @@ const processLineMarkdownLinks = (
         unHandledLinkTypes.push(link); // Not going to handle this (yet)
         // TODO - prepend the standard URL
       }
+    } else if (options.site_url && (linkUrl.startsWith(`http://${options.site_url}`) || linkUrl.startsWith(`https://${options.site_url}`) ) ) {
+
+      console.log(`http://${options.site_url}`);    
+      console.log(options.site_url);
+      console.log(link);
+      //urlLocalLink.push(link);
     } else if (linkUrl.startsWith("http")) {
-      isMarkdownImageLink
-        ? urlImageLinks.push(link)
-        : urlLinks.push(link);
+      isMarkdownImageLink ? urlImageLinks.push(link) : urlLinks.push(link);
     } else if (
       linkUrl.startsWith("ftp:") ||
       linkUrl.startsWith("ftps") ||
@@ -160,9 +164,7 @@ const processLineMarkdownLinks = (
     const link = { linkText, linkUrl, linkAnchor };
 
     if (linkUrl.startsWith("http")) {
-      isMarkdownImageLink
-        ? urlImageLinks.push(link)
-        : urlLinks.push(link);
+      isMarkdownImageLink ? urlImageLinks.push(link) : urlLinks.push(link);
     } else {
       isMarkdownImageLink
         ? relativeImageLinks.push(link)
