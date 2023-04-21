@@ -85,7 +85,17 @@ function outputErrors(results, options) {
         );
         //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
         // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
-      } else {
+      }     
+      else if (error.type == "MissingLocalImage") {
+        console.log(
+          `- ${error.type}: Linked image not found in file system: ${error.linkUrl}`
+        );
+        //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
+        // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
+      } 
+      
+      
+      else {
         console.log(`UNKKOWN ERROR:`);
         console.log(error);
       }

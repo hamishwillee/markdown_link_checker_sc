@@ -117,11 +117,9 @@ const processLineMarkdownLinks = (
         // TODO - prepend the standard URL
       }
     } else if (options.site_url && (linkUrl.startsWith(`http://${options.site_url}`) || linkUrl.startsWith(`https://${options.site_url}`) ) ) {
-
-      console.log(`http://${options.site_url}`);    
-      console.log(options.site_url);
       console.log(link);
       //urlLocalLink.push(link);
+      // TODO Add this to returned items, then create error from it.
     } else if (linkUrl.startsWith("http")) {
       isMarkdownImageLink ? urlImageLinks.push(link) : urlLinks.push(link);
     } else if (
