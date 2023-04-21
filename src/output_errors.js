@@ -1,6 +1,6 @@
 //Function that generates console and/or log output from an array of error objects.
 // - `results` is an array of error objects. These will have a `type` and a `page`. They may also have other values, depending on type of error - such as linkurl
-// - `options` has following properties: 
+// - `options` has following properties:
 //   - files: An array of file paths to filter errors by
 //   - root: A string representing the root directory of the files.
 //   - directory: A string representing file directory that is searched for files if not the root.
@@ -85,17 +85,19 @@ function outputErrors(results, options) {
         );
         //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
         // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
-      }     
-      else if (error.type == "MissingLocalImage") {
+      } else if (error.type == "MissingLocalImage") {
         console.log(
           `- ${error.type}: Linked image not found in file system: ${error.linkUrl}`
         );
         //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
         // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
-      } 
-      
-      
-      else {
+      } else if (error.type == "UrlToLocalSite") {
+        console.log(
+          `- ${error.type}: Link is URL but should be a relative link: \\[${error.linkText}](${error.linkUrl})`
+        );
+        //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
+        // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
+      } else {
         console.log(`UNKKOWN ERROR:`);
         console.log(error);
       }

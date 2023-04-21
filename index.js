@@ -13,6 +13,7 @@ import { slugifyVuepress } from "./src/slugify.js";
 import { processMarkdown } from "./src/process_markdown.js";
 import { processRelativeLinks } from "./src/process_relative_links.js";
 import { processLocalImageLinks } from "./src/process_local_image_links.js";
+import { processUrlsToLocalSource } from "./src/process_internal_url_links.js";
 
 program
   .option(
@@ -324,6 +325,13 @@ function filterErrors(errors) {
   );
   //console.log(errorsFromLocalImageLinks)
   results["allErrors"].push(...errorsFromLocalImageLinks);
+
+  const errorsFromUrlsToLocalSite = await processUrlsToLocalSource(
+    results,
+    options
+  );
+  //console.log(errorsFromUrlsToLocalSite)
+  results["allErrors"].push(...errorsFromUrlsToLocalSite);
 
   //Can now guess the summary file if not specified
   options.toc ? null : (options.toc = getPageWithMostLinks(results));

@@ -6,6 +6,7 @@ const processMarkdown = (contents, options) => {
   const htmlAnchors = []; //{};
   const relativeLinks = [];
   const urlLinks = [];
+  const urlLocalLinks = [];
   const urlImageLinks = [];
   const relativeImageLinks = [];
   const unHandledLinkTypes = [];
@@ -39,6 +40,7 @@ const processMarkdown = (contents, options) => {
         relativeLinks,
         relativeImageLinks,
         urlLinks,
+        urlLocalLinks,
         urlImageLinks,
         unHandledLinkTypes,
         options
@@ -71,6 +73,7 @@ const processMarkdown = (contents, options) => {
     anchors_tag_ids: htmlAnchors,
     relativeLinks,
     urlLinks,
+    urlLocalLinks,
     urlImageLinks,
     relativeImageLinks,
     unHandledLinkTypes,
@@ -87,6 +90,7 @@ const processLineMarkdownLinks = (
   relativeLinks,
   relativeImageLinks,
   urlLinks,
+  urlLocalLinks,
   urlImageLinks,
   unHandledLinkTypes,
   options
@@ -117,9 +121,8 @@ const processLineMarkdownLinks = (
         // TODO - prepend the standard URL
       }
     } else if (options.site_url && (linkUrl.startsWith(`http://${options.site_url}`) || linkUrl.startsWith(`https://${options.site_url}`) ) ) {
-      console.log(link);
-      //urlLocalLink.push(link);
-      // TODO Add this to returned items, then create error from it.
+      //console.log(link);
+      urlLocalLinks.push(link);
     } else if (linkUrl.startsWith("http")) {
       isMarkdownImageLink ? urlImageLinks.push(link) : urlLinks.push(link);
     } else if (
