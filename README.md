@@ -6,7 +6,6 @@ Probably never coming out of alpha. Bit of fun.
 Markdown link checker in node.
 Better handling of internal link checking.
 
-
 Current version only does internal link checking
 
 ```
@@ -28,8 +27,39 @@ Options:
 ```
 
 
+# What link formats can it match
+
+Currently matches:
+- `[Link text](url#anchor)`
+- `![Image alt](url)`
+
+There are heaps of link formats it does not match:
+
+- [Link text](url#anchor?param-5) - doesn't recognize URL params.
+- [Link text](url "title") - doesn't recognise title.
+- <http://www.whatever.com> - doesn't support autolinks
+- www.fred.com - Doesn't support auto-links external.
+- [![image title](imageurl)](linkurl)- Doesn't properly support a link around an image.
+- `linkreference: linkurl` - Doesn't support reference links (which would be linked like `[link text][linkreference]`
+
+
+
+Essentially lots of the other things https://github.github.com/gfm/ 
+
+
+The regex that drives this is very simple. 
+There are many other alternatives, such as: https://github.com/tcort/markdown-link-check
+You might also use a tokenziker or round trip to HTML using something like https://marked.js.org/using_advanced#inline in future as HTML is eaiser to extract links from.
+
+This does catch a LOT of cases though, and is pretty quick.
+
+
+
+# How does it work?
+
 The way this works:
-- Sspecify the directory and it will search below that for all markdown/html files.
+- Specify the directory and it will searc
+h below that for all markdown/html files.
 - It loads each file, and:
   - parses for markdown and html style links for both page and image links.
   - parses headings and builds list of anchors in the page (as per vuepress) for those headings (poorly tested code)

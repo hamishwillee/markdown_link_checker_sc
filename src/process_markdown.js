@@ -95,23 +95,31 @@ const processLineMarkdownLinks = (
   unHandledLinkTypes,
   options
 ) => {
-  const matches = line.matchAll(/([!@]?)\[([^\]]+)\]\((\S+?)\)/g);
+
+
+  const regex = /(?<prefix>[!@]?)\[(?<text>[^\]]+)\]\((?<url>\S+?)(?:\s+"(?<title>[^"]+)")?\)/g
+  const matches = line.matchAll(regex);
+
 
   // TODO - THIS matches @[youtube](gjHj6YsxcZk) valid link which is used for vuepress plugin URLs. We probably want to exclude it and deal with it separately
   // Maybe a backwards lookup on @
   // Not sure if we can generalize
 
   for (const match of matches) {
-    const isMarkdownImageLink = match[1] == "!" ? true : false;
-    const isVuepressYouTubeLink = match[1] == "@" ? true : false;
+    const { prefix, text, url, title } = match.groups;
+    const isMarkdownImageLink = prefix == "!" ? true : false;
+    const isVuepressYouTubeLink = prefix == "@" ? true : false;
 
-    const linkText = match[2];
-    let linkUrl = match[3];
-    const linkAnchorSplit = linkUrl.split("#");
+    const linkText = text;
+    let linkUrl = url;
+    const linkAnchorSplit = linkUrl.split("#"); //Assumes # is at end of URL, which is traditional
     linkUrl = linkAnchorSplit[0].trim();
     const linkAnchor = linkAnchorSplit[1] ? linkAnchorSplit[1] : null;
+    const linkTitle = title ? title : null;
 
-    const link = { linkText, linkUrl, linkAnchor };
+
+    const link = { linkText, linkUrl, linkAnchor, linkTitle };
+    console.log(link);
 
     if (isVuepressYouTubeLink) {
       if (linkUrl.startsWith("http")) {

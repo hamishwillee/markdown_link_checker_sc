@@ -1,6 +1,6 @@
 {
   "name": "markdown_link_checker_sc",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "description": "Markdown Link Checker",
   "main": "index.js",
   "scripts": {
