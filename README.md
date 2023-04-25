@@ -30,13 +30,12 @@ Options:
 # What link formats can it match
 
 Currently matches:
-- `[Link text](url#anchor)`
+- `\[Link text](url#anchor)`, `\[Link text](url#anchor?param1=value...)`, `\[Link text](url?param1=value...#anchor)`
 - `[Link text](url#anchor "title")`
 - `![Image alt](url)`
 
 There are heaps of link formats it does not match:
 
-- [Link text](url#anchor?param-5) - doesn't recognize URL params.
 - <http://www.whatever.com> - doesn't support autolinks
 - www.fred.com - Doesn't support auto-links external.
 - [![image title](imageurl)](linkurl)- Doesn't properly support a link around an image.
