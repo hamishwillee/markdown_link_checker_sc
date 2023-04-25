@@ -1,3 +1,5 @@
+import { splitURL } from "./helpers.js"; 
+
 // Returns slug for a string (markdown heading) using Vuepress algorithm.
 // Algorithm from chatgpt - needs testing.
 const processMarkdown = (contents, options) => {
@@ -95,11 +97,9 @@ const processLineMarkdownLinks = (
   unHandledLinkTypes,
   options
 ) => {
-
-
-  const regex = /(?<prefix>[!@]?)\[(?<text>[^\]]+)\]\((?<url>\S+?)(?:\s+"(?<title>[^"]+)")?\)/g
+  const regex =
+    /(?<prefix>[!@]?)\[(?<text>[^\]]+)\]\((?<url>\S+?)(?:\s+"(?<title>[^"]+)")?\)/g;
   const matches = line.matchAll(regex);
-
 
   // TODO - THIS matches @[youtube](gjHj6YsxcZk) valid link which is used for vuepress plugin URLs. We probably want to exclude it and deal with it separately
   // Maybe a backwards lookup on @
@@ -111,15 +111,13 @@ const processLineMarkdownLinks = (
     const isVuepressYouTubeLink = prefix == "@" ? true : false;
 
     const linkText = text;
-    let linkUrl = url;
-    const linkAnchorSplit = linkUrl.split("#"); //Assumes # is at end of URL, which is traditional
-    linkUrl = linkAnchorSplit[0].trim();
-    const linkAnchor = linkAnchorSplit[1] ? linkAnchorSplit[1] : null;
-    const linkTitle = title ? title : null;
-
-
-    const link = { linkText, linkUrl, linkAnchor, linkTitle };
-    console.log(link);
+    const linkUrl = url;
+    const linkTitle = title ? title : "";
+    
+    // Split URL into address, anchor and params
+    const { address: linkAddress, anchor: linkAnchor, params: linkParams } = splitURL(url);
+    const link = { linkUrl, linkText, linkAddress, linkAnchor, linkParams, linkTitle };
+    //console.log(link);
 
     if (isVuepressYouTubeLink) {
       if (linkUrl.startsWith("http")) {
@@ -128,7 +126,11 @@ const processLineMarkdownLinks = (
         unHandledLinkTypes.push(link); // Not going to handle this (yet)
         // TODO - prepend the standard URL
       }
-    } else if (options.site_url && (linkUrl.startsWith(`http://${options.site_url}`) || linkUrl.startsWith(`https://${options.site_url}`) ) ) {
+    } else if (
+      options.site_url &&
+      (linkUrl.startsWith(`http://${options.site_url}`) ||
+        linkUrl.startsWith(`https://${options.site_url}`))
+    ) {
       //console.log(link);
       urlLocalLinks.push(link);
     } else if (linkUrl.startsWith("http")) {
@@ -167,10 +169,9 @@ const processLineMarkdownLinks = (
     //const hrefOrSrc = match[2];
     let linkUrl = match[3];
     const linkText = match[4] || match[5] || "";
-    const linkAnchorSplit = linkUrl.split("#");
-    linkUrl = linkAnchorSplit[0];
-    const linkAnchor = linkAnchorSplit[1] ? linkAnchorSplit[1] : null;
-    const link = { linkText, linkUrl, linkAnchor };
+    const linkTitle = match.title ? match.title : "";
+    const { address: linkAddress, anchor: linkAnchor, params: linkParams } = splitURL(linkUrl);
+    const link = { linkUrl, linkText, linkAddress, linkAnchor, linkParams, linkTitle };
 
     if (linkUrl.startsWith("http")) {
       isMarkdownImageLink ? urlImageLinks.push(link) : urlLinks.push(link);

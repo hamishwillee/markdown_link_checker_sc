@@ -1,5 +1,18 @@
 # Heading One
 
+[beer1](https://www.example.com/path/to/page.html?param1=value1#anchor1)
+
+[beer2](https://www.example.com/path/to/page.html#anchor2?param1=value1)
+
+[beer3](#anchor3?param1=value1)
+
+[beer4](car.md#anchor4?param1=value1)
+
+[beer5](../fred/car.md#anchor5?param1=value1)
+
+
+[beer6](../fred/car.md#anchor5?param1=value1&param2=value2)
+
 ## Heading Two
 
 ## Heading Two
@@ -53,3 +66,5 @@ Image in link  [![Image in link - image title](../assets/image_in_link_imageurl.
 A [first test params](https://example.com/path/to/resource?param1=value1&param2=value2#anchor)
 
 A [first test params](https://example.com/path/to/resource#secondanchor?paramd1=value1&param2=value2)
+
+asfd [CBRK_VTOLARMING](../advanced_config/parameter_reference.md#CBRK_VTOLARMING) dfadf

@@ -8,8 +8,9 @@ function processRelativeLinks(results, options) {
     //console.log(`PAGE: ${page}`);
 
     page.relativeLinks.forEach((link, index, array) => {
-      //console.log(`LINK: ${link}`);
-      if (link.linkUrl === "") {
+      //console.log(`LINK: ${JSON.stringify(link, null, 2)}`);
+
+      if (link.linkAddress === "") {
         // This is a page-local link
         // Verify the link goes to either heading or id defined in page.
         if (
@@ -35,8 +36,12 @@ function processRelativeLinks(results, options) {
         //find the path of the linked page.
         const linkAbsoluteFilePath = path.resolve(
           path.dirname(page.page_file),
-          link.linkUrl
+          link.linkAddress
         );
+        //console.log('YYYY');
+        //console.log(link.linkAddress);
+        //console.log(linkAbsoluteFilePath);
+        //console.log(link);
 
         // Get the matching file matching our link, if it exists
         let linkedFile =
@@ -88,12 +93,15 @@ function processRelativeLinks(results, options) {
             linkText: `${link.linkText}`,
             linkUrlFilePath: `${linkAbsoluteFilePath}`,
           };
+          //console.log(error);
           errors.push(error);
         } else {
           // There is a linked file, so now see if there are anchors, and whether they work
-          if (!link.linkAnchor) { // No anchors, so go to next step
+          if (!link.linkAnchor) {
+            // No anchors, so go to next step
             //null
-          } else if ( //List of anchors in linked file includes the anchor
+          } else if (
+            //List of anchors in linked file includes the anchor
             linkedFile.anchors_auto_headings.includes(link.linkAnchor) ||
             linkedFile.anchors_tag_ids.includes(link.linkAnchor)
           ) {

@@ -31,12 +31,12 @@ Options:
 
 Currently matches:
 - `[Link text](url#anchor)`
+- `[Link text](url#anchor "title")`
 - `![Image alt](url)`
 
 There are heaps of link formats it does not match:
 
 - [Link text](url#anchor?param-5) - doesn't recognize URL params.
-- [Link text](url "title") - doesn't recognise title.
 - <http://www.whatever.com> - doesn't support autolinks
 - www.fred.com - Doesn't support auto-links external.
 - [![image title](imageurl)](linkurl)- Doesn't properly support a link around an image.
