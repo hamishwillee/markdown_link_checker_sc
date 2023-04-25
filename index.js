@@ -175,12 +175,14 @@ function filterErrors(errors) {
   // process  containing markdown, return results which includes links, headings, id anchors
   const results = await processDirectory(markdownDirectory, options);
 
+  // Process just the relative links to find errors like missing files, anchors
   const errorsFromRelativeLinks = processRelativeLinks(results, options);
   if (!results.allErrors) {
     results.allErrors = [];
   }
   results["allErrors"].push(...errorsFromRelativeLinks);
 
+  // Process just images linked in local file system - find errors like missing images.
   const errorsFromLocalImageLinks = await processLocalImageLinks(
     results,
     options
@@ -188,6 +190,7 @@ function filterErrors(errors) {
   //console.log(errorsFromLocalImageLinks)
   results["allErrors"].push(...errorsFromLocalImageLinks);
 
+  // Process links to current site URL - should be relative links normally.
   const errorsFromUrlsToLocalSite = await processUrlsToLocalSource(
     results,
     options
@@ -195,17 +198,23 @@ function filterErrors(errors) {
   //console.log(errorsFromUrlsToLocalSite)
   results["allErrors"].push(...errorsFromUrlsToLocalSite);
 
-  //Can now guess the summary file if not specified
+  // Check for orphans - files not linked anywhere and not in summary.
+  // Guesses the summary file if not specified in TO
   options.toc ? null : (options.toc = getPageWithMostLinks(results, options));
   checkSummaryOrphans(results, options);
+
+  // Filter the errors based on the settings in options. 
+  // At time of writing just filters on specific set of pages.
   const filteredResults = filterErrors(results.allErrors);
 
+  // Output the errors as console.logs
   outputErrors(filteredResults, options);
 
   //make array and document options? ie. if includes ...
   const jsonFilteredErrors = JSON.stringify(filteredResults, null, 2);
   logToFile("./logs/filteredErrors.json", jsonFilteredErrors);
 
+  // Log filtered errors to standard out
   if (options.log.includes("filterederrors")) {
     console.log(jsonFilteredErrors);
   }
