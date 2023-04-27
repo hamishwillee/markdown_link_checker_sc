@@ -23,7 +23,7 @@ function getPageWithMostLinks(pages, options) {
 
 // Get any orphans (no links from summary and no links at all)
 //
-function checkSummaryOrphans(results, options) {
+function checkPageOrphans(results, options) {
   const resultObj = {};
   const allInternalAbsLinks = [];
 
@@ -86,17 +86,17 @@ function checkSummaryOrphans(results, options) {
 
     const summaryFileLinks = resultObj[options.toc];
 
-    if (!summaryFileLinks.some((absLink) => absLink === filePath)) {
+    if (summaryFileLinks && !summaryFileLinks.some((absLink) => absLink === filePath)) {
       if (obj.redirectTo) {
-        // do nothing
+        // do nothing /-if it a redirect file then it shouldn't be linked.
+		//console.log(`EXECUTED: ${obj.page_file} in redirect`)
       } else if (obj.page_file === options.toc) {
-        //do nothing
+        //do nothing - summary shouldt be error for summary.
       } else {
-        //if it a redirect file then it shouldn't be linked.
+        
         allFilesNoSummaryReference.push(filePath);
-        //console.log(`File "${filePath}" not referenced in summary.md`);
         const error = {
-          type: "PageNotLinkedFromSummary",
+          type: "PageNotInTOC",
           page: `${obj.page_file}`,
         };
         if (!results.allErrors) {
@@ -143,4 +143,4 @@ function checkSummaryOrphans(results, options) {
   }
 }
 
-export { checkSummaryOrphans, getPageWithMostLinks };
+export { checkPageOrphans, getPageWithMostLinks };

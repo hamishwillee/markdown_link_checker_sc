@@ -1,12 +1,11 @@
 import path from "path";
 import fs from "fs";
 
-// An array of errors given a results object that contains our array of objects containing relativeLinks (and other information).
-// The options is used for explaining if it should fallback to HTML
-async function processLocalImageLinks(results, options) {
-  if (options.log.includes("functions")) {
-    console.log(`Function: processLocalImageLinks()`);
-  }
+// Checks if every image in every markdown page (results.page.relativeImageLinks) is present on the file system.
+// - results is the array of information coming out of markdown parsing.
+// - options just use to configure logging
+async function checkLocalImageLinks(results, options) {
+  options.log.includes("functions") ? console.log(`Function: checkLocalImageLinks()`) : null;
   const errors = [];
   const promises = [];
 
@@ -52,4 +51,4 @@ async function processLocalImageLinks(results, options) {
   return errors;
 }
 
-export { processLocalImageLinks };
+export { checkLocalImageLinks };

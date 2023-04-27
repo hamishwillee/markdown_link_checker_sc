@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-//const fs = require("fs");
 import fs from "fs";
 import path from "path";
 //const path = require("path");
@@ -12,20 +11,28 @@ import { outputErrors } from "./src/output_errors.js";
 import { slugifyVuepress } from "./src/slugify.js";
 import { processMarkdown } from "./src/process_markdown.js";
 import { processRelativeLinks } from "./src/process_relative_links.js";
-import { processLocalImageLinks } from "./src/process_local_image_links.js";
+import { checkLocalImageLinks } from "./src/process_local_image_links.js";
 import { processUrlsToLocalSource } from "./src/process_internal_url_links.js";
-import { checkSummaryOrphans, getPageWithMostLinks } from "./src/process_orphans.js";
-
+import {
+  checkPageOrphans,
+  getPageWithMostLinks,
+} from "./src/process_orphans.js";
+import { checkImageOrphansGlobal } from "./src/process_image_orphans.js";
 
 program
   .option(
     "-r, --root <path>",
-    "Root directory of your source (i.e. root of github repo). Use -d as well to specify a folder if docs are not in the root, or to just run on particular subfolder",
+    "Root directory of your source (i.e. root of github repo). Use -d as well to specify a folder if docs are not in the root, or to just run on particular subfolder. Defaults to current directory.",
     process.cwd()
   )
   .option(
     "-d, --directory [directory]",
     "The directory to search for markdown and html files, relative to root - such as: `en` for an English subfolder. Default empty (same as -r directory)",
+    ""
+  )
+  .option(
+    "-i, --imagedir [directory]",
+    "The directory to search for all image files for global orphan checking, relative to root - such as: `assets` or `en`. Default empty if not explicitly set, and global orphan checking will not be done",
     ""
   )
   .option(
@@ -148,8 +155,6 @@ const processDirectory = async (dir, options) => {
   return results;
 };
 
-
-
 function filterErrors(errors) {
   // This method filters all errors against settings in the command line - such as pages to output.
   let filteredErrors = errors;
@@ -183,7 +188,7 @@ function filterErrors(errors) {
   results["allErrors"].push(...errorsFromRelativeLinks);
 
   // Process just images linked in local file system - find errors like missing images.
-  const errorsFromLocalImageLinks = await processLocalImageLinks(
+  const errorsFromLocalImageLinks = await checkLocalImageLinks(
     results,
     options
   );
@@ -198,12 +203,18 @@ function filterErrors(errors) {
   //console.log(errorsFromUrlsToLocalSite)
   results["allErrors"].push(...errorsFromUrlsToLocalSite);
 
-  // Check for orphans - files not linked anywhere and not in summary.
-  // Guesses the summary file if not specified in TO
+  // Check for page orphans - markdown files not linked anywhere and not in summary.
+  // Guesses the table of contents file if not specified in options.toc
   options.toc ? null : (options.toc = getPageWithMostLinks(results, options));
-  checkSummaryOrphans(results, options);
+  checkPageOrphans(results, options); // Perhaps should follow pattern of returning errors - currently updates results
 
-  // Filter the errors based on the settings in options. 
+  const errorsGlobalImageOrphanCheck = await checkImageOrphansGlobal(
+    results,
+    options
+  );
+  results["allErrors"].push(...errorsGlobalImageOrphanCheck);
+
+  // Filter the errors based on the settings in options.
   // At time of writing just filters on specific set of pages.
   const filteredResults = filterErrors(results.allErrors);
 

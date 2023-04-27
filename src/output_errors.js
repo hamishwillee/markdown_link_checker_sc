@@ -15,8 +15,6 @@ function outputErrors(results, options) {
 
   for (const error of results) {
     //Report errors for listed pages or all
-    //console.log("error:");
-    //console.log(error);
     //console.log(error.page);
     if (!sortedByPageErrors[error.page]) {
       sortedByPageErrors[error.page] = [];
@@ -38,7 +36,7 @@ function outputErrors(results, options) {
       pageFromRoot = page.split(options.directory)[1];
     }
 
-    console.log(`\n${pageFromRoot}`);
+    console.log(`\n${pageFromRoot}`); //Root needs to full path - not '.' or whatever
     for (const error of sortedByPageErrors[page]) {
       if (error.type == "InternalLinkMissingFile") {
         console.log(`- ${error.type}: ${error.linkUrl}`);
@@ -54,29 +52,21 @@ function outputErrors(results, options) {
             `${error.linkText}](#${error.linkAnchor})` +
             "`: anchor doesn't match any heading id or element id"
         );
-        //console.log(          `- ${error.type}: #${error.linkAnchor} (Internal link without matching heading name or element id)`        );
-        //console.log(`  ${error.type}: #${error.linkAnchor} (heading/anchor missing?)`);
-        //console.log(`  #${error.linkAnchor} - Internal anchor not found`);
-        //console.log(`  [${error.linkText}](#${error.linkAnchor}) - Anchor not found`);
-        //console.log(`  Internal anchor not found: #${error.linkAnchor} `);
         // `{ "type": "LocalMissingAnchor", "page": "${page.page_file}", "anchor": "${link.linkAnchor}", "linktext", "${link.linkText}"  }`;
       } else if (error.type == "InternalMissingAnchor") {
         // missing anchor in linked file that exists.
-        //console.log(error);
         console.log(
           `- ${error.type}: #${error.linkAnchor} not found in ${error.linkUrlFilePath}`
         );
-        //console.log(`  ${error.type}: #${error.linkAnchor} (heading/anchor missing?)`);
-        //console.log(`  #${error.linkAnchor} - Internal anchor not found`);
-        //console.log(`  [${error.linkText}](#${error.linkAnchor}) - Anchor not found`);
-        //console.log(`  Internal anchor not found: #${error.linkAnchor} `);
         // { "type": "InternalMissingAnchor", "page": `${page.page_file}`, "linkAnchor": `${link.linkAnchor}`, "linkUrl": `${link.linkUrl}`, "linktext": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}` };
       } else if (error.type == "InternalLinkToHTML") {
         console.log(`- ${error.type}: ${error.linkUrl} (should be ".md"?)`);
         //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
         // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
-      } else if (error.type == "PageNotLinkedFromSummary") {
-        console.log(`- ${error.type}: Page must be in ${options.toc}`);
+      } else if (error.type == "PageNotInTOC") {
+        console.log(
+          `- ${error.type}: Page not in Table of Contents (${options.toc})`
+        );
         //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
         // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
       } else if (error.type == "PageNotLinkedInternally") {
@@ -97,13 +87,17 @@ function outputErrors(results, options) {
         );
         //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
         // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
+      } else if (error.type == "OrphanedImage") {
+        console.log(
+          `- ${error.type}: Image not linked from docs: ${error.page})`
+        );
+        //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
+        // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
       } else {
         console.log(`UNKKOWN ERROR:`);
         console.log(error);
       }
     }
-    //console.log(page)
-    //console.log(page.errors);
   }
 }
 

@@ -1,4 +1,4 @@
-import { splitURL } from "./helpers.js"; 
+import { splitURL } from "./helpers.js";
 
 // Returns slug for a string (markdown heading) using Vuepress algorithm.
 // Algorithm from chatgpt - needs testing.
@@ -97,8 +97,9 @@ const processLineMarkdownLinks = (
   unHandledLinkTypes,
   options
 ) => {
+  //const regex = /(?<prefix>[!@]?)\[(?<text>[^\]]+)\]\((?<url>\S+?)(?:\s+"(?<title>[^"]+)")?\)/g;
   const regex =
-    /(?<prefix>[!@]?)\[(?<text>[^\]]+)\]\((?<url>\S+?)(?:\s+"(?<title>[^"]+)")?\)/g;
+    /(?<prefix>[!@]?)\[(?<text>[^\]]*)\]\((?<url>\S+?)(?:\s+"(?<title>[^"]+)")?\)/g;
   const matches = line.matchAll(regex);
 
   // TODO - THIS matches @[youtube](gjHj6YsxcZk) valid link which is used for vuepress plugin URLs. We probably want to exclude it and deal with it separately
@@ -113,10 +114,21 @@ const processLineMarkdownLinks = (
     const linkText = text;
     const linkUrl = url;
     const linkTitle = title ? title : "";
-    
+
     // Split URL into address, anchor and params
-    const { address: linkAddress, anchor: linkAnchor, params: linkParams } = splitURL(url);
-    const link = { linkUrl, linkText, linkAddress, linkAnchor, linkParams, linkTitle };
+    const {
+      address: linkAddress,
+      anchor: linkAnchor,
+      params: linkParams,
+    } = splitURL(url);
+    const link = {
+      linkUrl,
+      linkText,
+      linkAddress,
+      linkAnchor,
+      linkParams,
+      linkTitle,
+    };
     //console.log(link);
 
     if (isVuepressYouTubeLink) {
@@ -159,7 +171,90 @@ const processLineMarkdownLinks = (
     }
   }
 
-  //Match for html img and a - append to the lists
+  //Match for html a - append to the lists
+  const regexHTMLLinkTotal = /<a\s+(?<attributes>.*?)>(?<linktext>.*?)<\/a>/gi;
+  const regexHTMLTitle =
+    /title\s*[=]\s*(?<quote>['"])(?<title>.*?)(?<!\\)\k<quote>/i;
+  //title\s*[=]\s*(?<title>['"]?)([^'"\s>]+)\k<title>/i;
+  const regexHTMLhref =
+    /href\s*[=]\s*(?<quote>['"])(?<href>.*?)(?<!\\)\k<quote>/i;
+  for (const match of line.matchAll(regexHTMLLinkTotal)) {
+    const attributes = match.groups.attributes;
+    //console.log(`XXXXXattributes_s: ${attributes}`)
+    const linkText =
+      match && match.groups.linktext ? match.groups.linktext : "";
+    //console.log(`XXXXXlinktext: ${linktext}`)
+    let linkTitle = "";
+    let linkUrl = "";
+    if (attributes) {
+      const titlematch = attributes.match(regexHTMLTitle);
+      linkTitle =
+        titlematch && titlematch.groups.title ? titlematch.groups.title : "";
+      const hrefmatch = attributes.match(regexHTMLhref);
+      linkUrl = hrefmatch && hrefmatch.groups.href ? hrefmatch.groups.href : "";
+    }
+
+    const {
+      address: linkAddress,
+      anchor: linkAnchor,
+      params: linkParams,
+    } = splitURL(linkUrl);
+    const link = {
+      linkUrl,
+      linkText,
+      linkAddress,
+      linkAnchor,
+      linkParams,
+      linkTitle,
+    };
+    if (linkUrl) {
+      linkUrl.startsWith("http")
+        ? urlLinks.push(link)
+        : relativeLinks.push(link);
+    }
+  }
+
+  //Match for html img - append to the lists
+  const regexHTMLImgTotal = /<img\s+(?<attributes>.*?)\/>/gi;
+  const regex_htmlattr_src =
+    /src\s*[=]\s*(?<quote>['"])(?<src>.*?)(?<!\\)\k<quote>/i;
+  for (const match of line.matchAll(regexHTMLImgTotal)) {
+    const attributes = match.groups.attributes;
+    //console.log(`XXXXXImageattributes_s: ${attributes}`)
+    const linkText = "";
+    let linkTitle = "";
+    let linkUrl = "";
+    if (attributes) {
+      const titlematch = attributes.match(regexHTMLTitle);
+      linkTitle =
+        titlematch && titlematch.groups.title ? titlematch.groups.title : "";
+      const srcmatch = attributes.match(regex_htmlattr_src);
+      linkUrl = srcmatch && srcmatch.groups.src ? srcmatch.groups.src : "";
+    }
+
+    const {
+      address: linkAddress,
+      anchor: linkAnchor,
+      params: linkParams,
+    } = splitURL(linkUrl);
+    const link = {
+      linkUrl,
+      linkText,
+      linkAddress,
+      linkAnchor,
+      linkParams,
+      linkTitle,
+    };
+    if (linkUrl) {
+      linkUrl.startsWith("http")
+        ? urlImageLinks.push(link)
+        : relativeImageLinks.push(link);
+    }
+
+    //console.log(link);
+  }
+
+  /*
   const regexHTMLLinks =
     /<(a|img)[^>]*(href|src)="([^"]+)"[^>]*(?:title="([^"]+)"|>([^<]+)<\/\1>)/gi;
 
@@ -181,6 +276,7 @@ const processLineMarkdownLinks = (
         : relativeLinks.push(link);
     }
   }
+*/
 
   return {
     relativeLinks,
