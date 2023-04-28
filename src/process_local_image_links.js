@@ -13,16 +13,15 @@ async function checkLocalImageLinks(results, options) {
     //console.log(`PAGE: ${page}`);
 
     page.relativeImageLinks.forEach((link, index, array) => {
-      //console.log(`LINK: ${link}`);
+      //console.log(`XYYXLINK: ${JSON.stringify(link, null, 2)}`);
       //console.log(`options.root: ${options.root}`);
       //console.log(`options.directory: ${options.directory}`);
-      //console.log(`link.linkUrlt: ${link.linkUrl}`);
-      //console.log(`link.linkUrlt: ${link.linkUrl}`);
+      //console.log(`link.linkUrlt: ${link.url}`);
       //console.log(`dirname: ${path.dirname(page.page_file)}`);
 
       const fullImagePath = path.join(
         path.dirname(page.page_file),
-        link.linkUrl
+        link.url
       );
       //console.log(`fullImagePath: ${fullImagePath}`);
       const promise = new Promise((resolve) => {
@@ -32,8 +31,8 @@ async function checkLocalImageLinks(results, options) {
             const error = {
               type: "MissingLocalImage",
               page: `${page.page_file}`,
-              linkUrl: `${link.linkUrl}`,
-              linkText: `${link.linkText}`,
+              linkUrl: `${link.url}`,
+              linkText: `${link.text}`,
               linkFullPath: `${fullImagePath}`,
             };
             errors.push(error);

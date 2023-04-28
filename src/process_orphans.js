@@ -35,7 +35,7 @@ function checkPageOrphans(results, options) {
     const absLinks = [];
 
     relativeLinks.forEach((linkObj) => {
-      const linkUrl = linkObj.linkUrl;
+      const linkUrl = linkObj.url;
       const absLink = path.resolve(path.dirname(filePath), linkUrl);
       absLinks.push(absLink);
       allInternalAbsLinks.push(absLink);

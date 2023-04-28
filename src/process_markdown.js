@@ -1,8 +1,11 @@
-import { splitURL } from "./helpers.js";
+import { Link } from "./links.js";
 
 // Returns slug for a string (markdown heading) using Vuepress algorithm.
 // Algorithm from chatgpt - needs testing.
 const processMarkdown = (contents, options) => {
+  options.log.includes("functions")
+  ? console.log("Function: processMarkdown")
+  : null;
   const headings = [];
   //const anchors = [];
   const htmlAnchors = []; //{};
@@ -115,21 +118,8 @@ const processLineMarkdownLinks = (
     const linkUrl = url;
     const linkTitle = title ? title : "";
 
-    // Split URL into address, anchor and params
-    const {
-      address: linkAddress,
-      anchor: linkAnchor,
-      params: linkParams,
-    } = splitURL(url);
-    const link = {
-      linkUrl,
-      linkText,
-      linkAddress,
-      linkAnchor,
-      linkParams,
-      linkTitle,
-    };
-    //console.log(link);
+    const link = new Link(linkUrl, linkText, linkTitle);
+
 
     if (isVuepressYouTubeLink) {
       if (linkUrl.startsWith("http")) {
@@ -194,25 +184,16 @@ const processLineMarkdownLinks = (
       linkUrl = hrefmatch && hrefmatch.groups.href ? hrefmatch.groups.href : "";
     }
 
-    const {
-      address: linkAddress,
-      anchor: linkAnchor,
-      params: linkParams,
-    } = splitURL(linkUrl);
-    const link = {
-      linkUrl,
-      linkText,
-      linkAddress,
-      linkAnchor,
-      linkParams,
-      linkTitle,
-    };
+    const link = new Link(linkUrl, linkText, linkTitle);
+
     if (linkUrl) {
       linkUrl.startsWith("http")
         ? urlLinks.push(link)
         : relativeLinks.push(link);
     }
   }
+
+  //Might further parse this to catch img in anchor.
 
   //Match for html img - append to the lists
   const regexHTMLImgTotal = /<img\s+(?<attributes>.*?)\/>/gi;
@@ -232,19 +213,7 @@ const processLineMarkdownLinks = (
       linkUrl = srcmatch && srcmatch.groups.src ? srcmatch.groups.src : "";
     }
 
-    const {
-      address: linkAddress,
-      anchor: linkAnchor,
-      params: linkParams,
-    } = splitURL(linkUrl);
-    const link = {
-      linkUrl,
-      linkText,
-      linkAddress,
-      linkAnchor,
-      linkParams,
-      linkTitle,
-    };
+    const link = new Link(linkUrl, linkText, linkTitle);
     if (linkUrl) {
       linkUrl.startsWith("http")
         ? urlImageLinks.push(link)
@@ -254,29 +223,6 @@ const processLineMarkdownLinks = (
     //console.log(link);
   }
 
-  /*
-  const regexHTMLLinks =
-    /<(a|img)[^>]*(href|src)="([^"]+)"[^>]*(?:title="([^"]+)"|>([^<]+)<\/\1>)/gi;
-
-  for (const match of line.matchAll(regexHTMLLinks)) {
-    const isMarkdownImageLink = match[1] == "img" ? true : false;
-    //const tagType = match[1];
-    //const hrefOrSrc = match[2];
-    let linkUrl = match[3];
-    const linkText = match[4] || match[5] || "";
-    const linkTitle = match.title ? match.title : "";
-    const { address: linkAddress, anchor: linkAnchor, params: linkParams } = splitURL(linkUrl);
-    const link = { linkUrl, linkText, linkAddress, linkAnchor, linkParams, linkTitle };
-
-    if (linkUrl.startsWith("http")) {
-      isMarkdownImageLink ? urlImageLinks.push(link) : urlLinks.push(link);
-    } else {
-      isMarkdownImageLink
-        ? relativeImageLinks.push(link)
-        : relativeLinks.push(link);
-    }
-  }
-*/
 
   return {
     relativeLinks,
