@@ -4,8 +4,8 @@ import { Link } from "./links.js";
 // Algorithm from chatgpt - needs testing.
 const processMarkdown = (contents, options) => {
   options.log.includes("functions")
-  ? console.log("Function: processMarkdown")
-  : null;
+    ? console.log("Function: processMarkdown")
+    : null;
   const headings = [];
   //const anchors = [];
   const htmlAnchors = []; //{};
@@ -118,14 +118,14 @@ const processLineMarkdownLinks = (
     const linkUrl = url;
     const linkTitle = title ? title : "";
 
-    const link = new Link(linkUrl, linkText, linkTitle);
-
-
+    // Work out Link type
+    let linkType = ""; 
+    
     if (isVuepressYouTubeLink) {
       if (linkUrl.startsWith("http")) {
-        urlLinks.push(link);
+        linkType = "urlLink";
       } else {
-        unHandledLinkTypes.push(link); // Not going to handle this (yet)
+        // Not going to handle this (yet)
         // TODO - prepend the standard URL
       }
     } else if (
@@ -134,30 +134,59 @@ const processLineMarkdownLinks = (
         linkUrl.startsWith(`https://${options.site_url}`))
     ) {
       //console.log(link);
-      urlLocalLinks.push(link);
-    } else if (linkUrl.startsWith("http")) {
-      isMarkdownImageLink ? urlImageLinks.push(link) : urlLinks.push(link);
-    } else if (
-      linkUrl.startsWith("ftp:") ||
-      linkUrl.startsWith("ftps") ||
-      linkUrl.startsWith("mailto")
-    ) {
-      // One of the types we specifically do not handle
-      unHandledLinkTypes.push(link);
-    } else if (
-      linkUrl.endsWith(".png") ||
-      linkUrl.endsWith(".jpg") ||
-      linkUrl.endsWith(".jpeg") ||
-      linkUrl.endsWith(".gif") ||
-      linkUrl.endsWith(".webp")
-    ) {
-      //console.log("???Markdown");
-      //Catch case where image link is inside
-      relativeImageLinks.push(link);
-    } else {
-      isMarkdownImageLink
-        ? relativeImageLinks.push(link)
-        : relativeLinks.push(link);
+      linkType = "urlLocalLink";
+    } 
+    
+
+    //Create link
+    const link = new Link({
+      page: "thepagestilltobesorted",
+      url: linkUrl,
+      text: linkText,
+      title: linkTitle,
+      type: linkType,
+    });
+    console.log(`XXLINKTEST: ${JSON.stringify(link, null, 2)}`);
+
+
+
+    // For now, dump in different arrays. Might just add to one array eventually
+    switch (link.type) {
+      case "urlLink": {
+        urlLinks.push(link);
+        //console.log("This is a URL link");
+        break;
+      }
+      case "urlLocalLink": {
+        urlLocalLinks.push(link);
+        //console.log("This is a URL local link");
+        break;
+      }
+      case "urlImageLink": {
+        urlImageLinks.push(link);
+        //console.log("This is a URL image link");
+        break;
+      }
+      case "relativeImageLink": {
+        relativeImageLinks.push(link);
+        //console.log("This is a relative image link");
+        break;
+      }
+      case "relativeLink": {
+        relativeLinks.push(link);
+        //console.log("This is a relative link");
+        break;
+      }
+      case "relativeAnchorLink": {
+        relativeLinks.push(link); // This is an anchor link - but currently handled in the same code.
+        //console.log("This is a relative link");
+        break;
+      }
+      default: {
+        unHandledLinkTypes.push(link);
+        console.log(`This is an unhandled link type: ${link.type}`);
+        break;
+      }
     }
   }
 
@@ -184,7 +213,13 @@ const processLineMarkdownLinks = (
       linkUrl = hrefmatch && hrefmatch.groups.href ? hrefmatch.groups.href : "";
     }
 
-    const link = new Link(linkUrl, linkText, linkTitle);
+    //const link = new Link(linkUrl, linkText, linkTitle);
+    const link = new Link({
+      page: "thepagestilltobesorted",
+      url: linkUrl,
+      text: linkText,
+      title: linkTitle /* type: linkType */,
+    });
 
     if (linkUrl) {
       linkUrl.startsWith("http")
@@ -213,7 +248,13 @@ const processLineMarkdownLinks = (
       linkUrl = srcmatch && srcmatch.groups.src ? srcmatch.groups.src : "";
     }
 
-    const link = new Link(linkUrl, linkText, linkTitle);
+    //const link = new Link(linkUrl, linkText, linkTitle);
+    const link = new Link({
+      page: "thepagestilltobesorted",
+      url: linkUrl,
+      text: linkText,
+      title: linkTitle /* type: linkType */,
+    });
     if (linkUrl) {
       linkUrl.startsWith("http")
         ? urlImageLinks.push(link)
@@ -222,7 +263,6 @@ const processLineMarkdownLinks = (
 
     //console.log(link);
   }
-
 
   return {
     relativeLinks,

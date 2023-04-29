@@ -1,4 +1,5 @@
 import path from "path";
+import { Error } from "./errors.js"
 
 // An array of errors given a results object that contains our array of objects containing relativeLinks (and other information).
 // The options is used for explaining if it should fallback to HTML
@@ -27,6 +28,10 @@ function processRelativeLinks(results, options) {
             linkAnchor: `${link.anchor}`,
             linkText: `${link.text}`,
           };
+          console.log(`XXXOrigError: ${JSON.stringify(error, null, 2)}`);
+          const myError = new Error("LocalMissingAnchor", link); 
+          console.log(`XXXError: ${JSON.stringify(myError, null, 2)}`);
+          errors.push 
           errors.push(error);
         }
       } else {
