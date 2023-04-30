@@ -42,13 +42,13 @@ class Link {
 
   constructor({ page, url, type, text, title }) {
     //console.log(      `Link: constructor args: ${JSON.stringify(arguments, null, 2)}`    );
-    
+
     if (page) {
       this.page = page;
     } else {
       throw new Error("Link: page argument is required.");
     }
-    
+
     if (url) {
       this.url = url;
       this.splitURL(this.url);
@@ -58,7 +58,6 @@ class Link {
 
     const linkTypeGuess = this.findType(); // Do to populate the isXxxx values
     if (type) {
-      
       if (!Link.linkTypes.has(type)) {
         console.log("Supported Link Types:");
         console.log(Link.linkTypes); //This is because having trouble getting the set to print
@@ -171,7 +170,7 @@ class Link {
         this.isRelative = true;
         //console.log(`Linkcheck10 link is relative : ${this.address} `);
         // Must be a relative link of some kind.
-
+        //this.absolutePath = this.getAbsolutePath();
         if (this.isImage) {
           //console.log(`Linkcheck11 link is relative image : ${isImage} `);
           linkType = "relativeImageLink";
@@ -191,6 +190,13 @@ class Link {
 
     return linkType; //Return whatever we guessed
   } // end of file(type)
+
+  //get absolute path to link, if this is a relative URL link.
+  getAbsolutePath() {
+    //probably should test if is relative ...
+    const absPath = path.resolve(path.dirname(this.page), this.address);
+    return absPath;
+  }
 
   // Return true if file is an image.
   //Just looks at file extension.

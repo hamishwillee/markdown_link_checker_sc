@@ -39,11 +39,12 @@ function processRelativeLinks(results, options) {
         const linkAbsoluteFilePath = path.resolve(
           path.dirname(page.page_file),
           link.address
-          //link.linkAddress
         );
-        //console.log('YYYY');
-        //console.log(link.linkAddress);
-        //console.log(linkAbsoluteFilePath);
+
+		//console.log('YYYY');
+        console.log(linkAbsoluteFilePath);
+		console.log(link.getAbsolutePath());
+		
         //console.log(link);
 
         // Get the matching file matching our link, if it exists
