@@ -36,14 +36,7 @@ function processRelativeLinks(results, options) {
         //console.log(`LINK: ${JSON.stringify(link, null, 2)}`); 
         //console.log(`LINKADDRESS: ${link.address}`); 
 
-        const linkAbsoluteFilePath = path.resolve(
-          path.dirname(page.page_file),
-          link.address
-        );
-
-		//console.log('YYYY');
-        console.log(linkAbsoluteFilePath);
-		console.log(link.getAbsolutePath());
+        const linkAbsoluteFilePath = link.getAbsolutePath();
 		
         //console.log(link);
 

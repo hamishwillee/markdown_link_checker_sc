@@ -93,6 +93,4 @@ class UrlToLocalSiteError extends LinkError {
 
 
 
-
-
 export { LinkError, CurrentFileMissingAnchorError, LinkedFileMissingAnchorError, LinkedInternalPageMissingError, InternalLinkToHTMLError, UrlToLocalSiteError};

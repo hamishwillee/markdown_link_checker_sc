@@ -193,9 +193,8 @@ class Link {
 
   //get absolute path to link, if this is a relative URL link.
   getAbsolutePath() {
-    //probably should test if is relative ...
-    const absPath = path.resolve(path.dirname(this.page), this.address);
-    return absPath;
+    if (!this.isRelative) throw new Error("Link:getAbsolutePath() called on non-relative path");
+    return path.resolve(path.dirname(this.page), this.address);
   }
 
   // Return true if file is an image.
