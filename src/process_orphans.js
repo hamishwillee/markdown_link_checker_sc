@@ -1,7 +1,7 @@
 import { logToFile } from "./helpers.js";
 import path from "path";
 import { sharedData } from "./shared_data.js";
-import { PageNotInTOCError } from "./errors.js";
+import { PageNotInTOCError, PageNotLinkedInternallyError } from "./errors.js";
 
 
 // Gets page with most links. Supposed to be used on the allResults object that is an array of objects about each page.
@@ -78,10 +78,8 @@ function checkPageOrphans(results) {
         //if it a redirect file then it shouldn't be linked.
         allFilesNoReference.push(filePath);
         //console.log(`File "${filePath}" not referenced by any absolute link`);
-        const error = {
-          type: "PageNotLinkedInternally",
-          page: `${obj.page_file}`,
-        };
+        
+        const error = new PageNotLinkedInternallyError({file: obj.page_file});
         results.allErrors.push(error);
         allFilesReferenced = false;
       }

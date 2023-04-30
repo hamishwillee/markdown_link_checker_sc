@@ -39,11 +39,13 @@ class CurrentFileMissingAnchorError extends LinkError {
 // Linked file (relative) exists but anchor in it does not
 class LinkedFileMissingAnchorError extends LinkError {
   constructor({ file, link }) {
-    super({ file: file, link: link, type: "LinkedFileMissingAnchor" }); 
+    super({ file: file, link: link, type: "LinkedFileMissingAnchor" });
   }
   output() {
     console.log(
-      `- ${this.type}: #${this.link.anchor} not found in ${this.link.address} (${this.link.getAbsolutePath()})`
+      `- ${this.type}: #${this.link.anchor} not found in ${
+        this.link.address
+      } (${this.link.getAbsolutePath()})`
     );
   }
 }
@@ -51,76 +53,96 @@ class LinkedFileMissingAnchorError extends LinkError {
 // A link to a page (markdown, and maybe HTML) that does not exist.
 class LinkedInternalPageMissingError extends LinkError {
   constructor({ file, link }) {
-    super({ file: file, link: link, type: "LinkedInternalPageMissing" }); 
+    super({ file: file, link: link, type: "LinkedInternalPageMissing" });
   }
   output() {
-    console.log(`- ${this.type}: This linked file is missing: ${this.link.address}`);
+    console.log(
+      `- ${this.type}: This linked file is missing: ${this.link.address}`
+    );
   }
 }
 
 // A link to an HTML file probably should be markdown
 class InternalLinkToHTMLError extends LinkError {
   constructor({ file, link }) {
-    super({ file: file, link: link, type: "InternalLinkToHTML" }); 
+    super({ file: file, link: link, type: "InternalLinkToHTML" });
   }
   output() {
     console.log(`- ${this.type}: ${this.link.url} (should be ".md"?)`);
   }
 }
 
-
 // A link to a URL that is this site, and should probably be an internal/relative link
 class UrlToLocalSiteError extends LinkError {
   constructor({ file, link }) {
-    super({ file: file, link: link, type: "UrlToLocalSite" }); 
+    super({ file: file, link: link, type: "UrlToLocalSite" });
   }
   output() {
-    console.log(`- ${this.type}: Link is URL to this site. Should it be relative link?: \\[${this.link.text}](${this.link.url}))`);
+    console.log(
+      `- ${this.type}: Link is URL to this site. Should it be relative link?: \\[${this.link.text}](${this.link.url}))`
+    );
   }
 }
 
-// A link to a URL that is this site, and should probably be an internal/relative link
+// Page is not linked from TOC page - here TOC is the page with most links, or may be explicitly defined.
 class PageNotInTOCError extends LinkError {
   constructor({ file, link }) {
-    super({ file: file, link: link, type: "PageNotInTOC" }); 
+    super({ file: file, link: link, type: "PageNotInTOC" });
   }
   output() {
-    console.log(`- ${this.type}:  Page not in Table of Contents (${sharedData.options.toc})`);
+    console.log(
+      `- ${this.type}:  Page not in Table of Contents (${sharedData.options.toc})`
+    );
+  }
+}
+
+// Page is not linked from any other page
+class PageNotLinkedInternallyError extends LinkError {
+  constructor({ file, link }) {
+    super({ file: file, link: link, type: "PageNotLinkedInternally" });
+  }
+  output() {
+    console.log(
+      `- ${this.type}: Page is orphan (not linked by any other page)`
+    );
+  }
+}
+
+// Image is linked from page but not found
+class LocalImageNotFoundError extends LinkError {
+  constructor({ file, link }) {
+    super({ file: file, link: link, type: "LocalImageNotFound" });
+  }
+  output() {
+    console.log(
+      `- ${this.type}: Linked image not found in file system: ${this.link.url}`
+    );
+  }
+}
+
+// Image is linked from page but not found
+class OrphanedImageError extends LinkError {
+  constructor({ file, link }) {
+    super({ file: file, link: link, type: "OrphanedImage" });
+  }
+  output() {
+    console.log(
+      `- ${this.type}: Image not linked from docs: ${this.file}`
+    );
   }
 }
 
 
-/* Errors still to create
 
-    } else if (error.type == "PageNotInTOC") {
-        console.log(
-          `- ${error.type}: Page not in Table of Contents (${sharedData.options.toc})`
-        );
-        //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
-        // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
-      } else if (error.type == "PageNotLinkedInternally") {
-        console.log(
-          `- ${error.type}: Page is orphan (not linked by any other page)`
-        );
-        //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
-        // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
-      } else if (error.type == "MissingLocalImage") {
-        console.log(
-          `- ${error.type}: Linked image not found in file system: ${error.linkUrl}`
-        );
-        //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
-        // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
-      } else if (error.type == "UrlToLocalSite") {
-        //console.log( `- ${error.type}: Link is URL but should be a relative link: \\[${error.linkText}](${error.linkUrl})` );
-        //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
-        // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
-      } else if (error.type == "OrphanedImage") {
-        console.log(
-          `- ${error.type}: Image not linked from docs: ${error.page})`
-        );
-
-        */
-
-
-
-export { LinkError, CurrentFileMissingAnchorError, LinkedFileMissingAnchorError, LinkedInternalPageMissingError, InternalLinkToHTMLError, UrlToLocalSiteError, PageNotInTOCError};
+export {
+  LinkError,
+  CurrentFileMissingAnchorError,
+  LinkedFileMissingAnchorError,
+  LinkedInternalPageMissingError,
+  InternalLinkToHTMLError,
+  UrlToLocalSiteError,
+  PageNotInTOCError,
+  PageNotLinkedInternallyError,
+  LocalImageNotFoundError,
+  OrphanedImageError
+};
