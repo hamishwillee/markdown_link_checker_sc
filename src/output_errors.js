@@ -61,9 +61,7 @@ function outputErrors(results) {
         //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
         // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
       } else if (error.type == "PageNotInTOC") {
-        console.log(
-          `- ${error.type}: Page not in Table of Contents (${sharedData.options.toc})`
-        );
+        // console.log( `- ${error.type}: Page not in Table of Contents (${sharedData.options.toc})`  );
         //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
         // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
       } else if (error.type == "PageNotLinkedInternally") {
@@ -89,7 +87,7 @@ function outputErrors(results) {
         //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
         // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
       } else {
-        console.log(`UNKKOWN ERROR:`);
+        console.log(`UNKOWN ERROR:`);
         console.log(error);
       }
     }

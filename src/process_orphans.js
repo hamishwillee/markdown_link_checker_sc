@@ -1,6 +1,8 @@
 import { logToFile } from "./helpers.js";
 import path from "path";
 import { sharedData } from "./shared_data.js";
+import { PageNotInTOCError } from "./errors.js";
+
 
 // Gets page with most links. Supposed to be used on the allResults object that is an array of objects about each page.
 // Will use to get the summary.
@@ -96,10 +98,8 @@ function checkPageOrphans(results) {
       } else {
         
         allFilesNoSummaryReference.push(filePath);
-        const error = {
-          type: "PageNotInTOC",
-          page: `${obj.page_file}`,
-        };
+        const error = new PageNotInTOCError({file: obj.page_file});
+
         if (!results.allErrors) {
           results["allErrors"] = [];
         }

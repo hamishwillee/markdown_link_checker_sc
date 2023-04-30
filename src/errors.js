@@ -1,4 +1,4 @@
-
+import { sharedData } from "./shared_data.js";
 
 class LinkError {
   constructor({ type, file, link = null }) {
@@ -79,6 +79,16 @@ class UrlToLocalSiteError extends LinkError {
   }
 }
 
+// A link to a URL that is this site, and should probably be an internal/relative link
+class PageNotInTOCError extends LinkError {
+  constructor({ file, link }) {
+    super({ file: file, link: link, type: "PageNotInTOC" }); 
+  }
+  output() {
+    console.log(`- ${this.type}:  Page not in Table of Contents (${sharedData.options.toc})`);
+  }
+}
+
 
 /* Errors still to create
 
@@ -113,4 +123,4 @@ class UrlToLocalSiteError extends LinkError {
 
 
 
-export { LinkError, CurrentFileMissingAnchorError, LinkedFileMissingAnchorError, LinkedInternalPageMissingError, InternalLinkToHTMLError, UrlToLocalSiteError};
+export { LinkError, CurrentFileMissingAnchorError, LinkedFileMissingAnchorError, LinkedInternalPageMissingError, InternalLinkToHTMLError, UrlToLocalSiteError, PageNotInTOCError};
