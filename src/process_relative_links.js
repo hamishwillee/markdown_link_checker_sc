@@ -76,7 +76,7 @@ function processRelativeLinks(results) {
 
             if (linkedHTMLFile) {
               const error = new InternalLinkToHTMLError({ link: link });
-              console.log(error);
+              //console.log(error);
               errors.push(error);
               linkedFile = linkedHTMLFile;
             }

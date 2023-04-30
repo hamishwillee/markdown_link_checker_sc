@@ -1,14 +1,3 @@
-/*
-const error = {
-  type: "LinkedFileMissingAnchor",
-  page: `${page.page_file}`,
-  linkAnchor: `${link.anchor}`,
-  linkUrl: `${link.url}`,
-  linkText: `${link.text}`,
-  linkUrlFilePath: `${linkAbsoluteFilePath}`,
-};
-*/
-
 
 
 class LinkError {
@@ -90,6 +79,37 @@ class UrlToLocalSiteError extends LinkError {
   }
 }
 
+
+/* Errors still to create
+
+    } else if (error.type == "PageNotInTOC") {
+        console.log(
+          `- ${error.type}: Page not in Table of Contents (${sharedData.options.toc})`
+        );
+        //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
+        // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
+      } else if (error.type == "PageNotLinkedInternally") {
+        console.log(
+          `- ${error.type}: Page is orphan (not linked by any other page)`
+        );
+        //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
+        // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
+      } else if (error.type == "MissingLocalImage") {
+        console.log(
+          `- ${error.type}: Linked image not found in file system: ${error.linkUrl}`
+        );
+        //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
+        // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
+      } else if (error.type == "UrlToLocalSite") {
+        //console.log( `- ${error.type}: Link is URL but should be a relative link: \\[${error.linkText}](${error.linkUrl})` );
+        //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
+        // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
+      } else if (error.type == "OrphanedImage") {
+        console.log(
+          `- ${error.type}: Image not linked from docs: ${error.page})`
+        );
+
+        */
 
 
 
