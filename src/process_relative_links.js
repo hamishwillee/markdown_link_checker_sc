@@ -1,18 +1,27 @@
 import path from "path";
-import { /*LinkError,*/ CurrentFileMissingAnchorError, LinkedFileMissingAnchorError, LinkedInternalPageMissingError, InternalLinkToHTMLError, UrlToLocalSiteError} from "./errors.js"
+import {
+  /*LinkError,*/ CurrentFileMissingAnchorError,
+  LinkedFileMissingAnchorError,
+  LinkedInternalPageMissingError,
+  InternalLinkToHTMLError,
+  UrlToLocalSiteError,
+} from "./errors.js";
+import { sharedData } from "./shared_data.js";
 
 // An array of errors given a results object that contains our array of objects containing relativeLinks (and other information).
-// The options is used for explaining if it should fallback to HTML
-function processRelativeLinks(results, options) {
-  options.log.includes("functions")
-  ? console.log("Function: processRelativeLinks")
-  : null;
+function processRelativeLinks(results) {
+  sharedData.options.log.includes("functions")
+    ? console.log("Function: processRelativeLinks")
+    : null;
   const errors = [];
+
+  console.log(sharedData);
+
   results.forEach((page, index, array) => {
-    //console.log(`PAGE:${JSON.stringify(page, null, 2)}`); 
+    //console.log(`PAGE:${JSON.stringify(page, null, 2)}`);
 
     page.relativeLinks.forEach((link, index, array) => {
-      //console.log(`LINK: ${JSON.stringify(link, null, 2)}`); 
+      //console.log(`LINK: ${JSON.stringify(link, null, 2)}`);
       if (link.address === "") {
         // This is a page-local link
         // Verify the link goes to either heading or id defined in page.
@@ -23,7 +32,7 @@ function processRelativeLinks(results, options) {
           )
         ) {
           // There is no heading link to specified anchor in current page
-          const error = new CurrentFileMissingAnchorError({link: link}); 
+          const error = new CurrentFileMissingAnchorError({ link: link });
           console.log(`XXX_LMA_Error: ${JSON.stringify(error, null, 2)}`);
           errors.push(error);
         }
@@ -33,25 +42,23 @@ function processRelativeLinks(results, options) {
         // Report error if not. Otherwise check if anchor is in page.
 
         //find the path of the linked page.
-        //console.log(`LINK: ${JSON.stringify(link, null, 2)}`); 
-        //console.log(`LINKADDRESS: ${link.address}`); 
+        //console.log(`LINK: ${JSON.stringify(link, null, 2)}`);
+        //console.log(`LINKADDRESS: ${link.address}`);
 
         const linkAbsoluteFilePath = link.getAbsolutePath();
-		
+
         //console.log(link);
 
         // Get the matching file matching our link, if it exists
-
         let linkedFile =
           results.find(
             (linkedFile) =>
               linkedFile.hasOwnProperty("page_file") &&
               path.normalize(linkedFile.page_file) === linkAbsoluteFilePath
           ) || null;
-; 
         if (!linkedFile) {
           if (
-            options.tryMarkdownforHTML &&
+            sharedData.options.tryMarkdownforHTML &&
             linkAbsoluteFilePath.endsWith(".html")
           ) {
             // The file was HTML so it might be a file extension mistake (linking to html instead of md)
@@ -60,7 +67,7 @@ function processRelativeLinks(results, options) {
             const markdownAbsoluteFilePath = `${
               linkAbsoluteFilePath.split(".html")[0]
             }.md`;
- 
+
             const linkedHTMLFile =
               results.find(
                 (linkedHTMLFile) =>
@@ -70,10 +77,8 @@ function processRelativeLinks(results, options) {
               ) || null;
 
             if (linkedHTMLFile) {
-
-              const newError = new InternalLinkToHTMLError({link: link});
-             console.log(newError);
-
+              const newError = new InternalLinkToHTMLError({ link: link });
+              console.log(newError);
 
               const error = {
                 type: "InternalLinkToHTML",
@@ -82,7 +87,6 @@ function processRelativeLinks(results, options) {
                 linkText: `${link.text}`,
                 linkUrlFilePath: `${linkAbsoluteFilePath}`,
               };
-
 
               errors.push(newError);
               errors.push(error);
@@ -93,12 +97,12 @@ function processRelativeLinks(results, options) {
 
         if (!linkedFile) {
           //File not found as .html or md
-          const error = new LinkedInternalPageMissingError({link: link})
+          const error = new LinkedInternalPageMissingError({ link: link });
           //console.log(error);
           errors.push(error);
         } else {
           // There is a linked file, so now see if there are anchors, and whether they work
- 
+
           if (!link.linkAnchor) {
             // No anchors, so go to next step
             //null
@@ -110,9 +114,8 @@ function processRelativeLinks(results, options) {
             //
             //do nothing - we're good
           } else {
-
             // File exists but does not contain matching anchor
-            const newError = new LinkedFileMissingAnchorError({link: link})
+            const newError = new LinkedFileMissingAnchorError({ link: link });
             console.log("LOOK HERE LinkedFileMissingAnchorError ");
             newError.output();
             throw Error("arse");

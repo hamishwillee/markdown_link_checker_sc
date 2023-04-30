@@ -1,16 +1,11 @@
 //import { /*LinkError,*/ CurrentFileMissingAnchorError, LinkedFileMissingAnchorError, LinkedInternalPageMissingError, InternalLinkToHTMLError, UrlToLocalSiteError} from "./errors.js"
 
+import { sharedData } from "./shared_data.js";
+
+
 //Function that generates console and/or log output from an array of error objects.
 // - `results` is an array of error objects. These will have a `type` and a `page`. They may also have other values, depending on type of error - such as linkurl
-// - `options` has following properties:
-//   - files: An array of file paths to filter errors by
-//   - root: A string representing the root directory of the files.
-//   - directory: A string representing file directory that is searched for files if not the root.
-//   - toc: A string indicating the table of contents file or summarry file. ?
-
-
-
-function outputErrors(results, options) {
+function outputErrors(results) {
   //console.log(results);
 
   //Sort results by page and type.
@@ -34,10 +29,10 @@ function outputErrors(results, options) {
   //console.log(sortedByPageErrors);
   for (const page in sortedByPageErrors) {
     let pageFromRoot;
-    if (options.root) {
-      pageFromRoot = page.split(options.root)[1];
+    if (sharedData.options.root) {
+      pageFromRoot = page.split(sharedData.options.root)[1];
     } else {
-      pageFromRoot = page.split(options.directory)[1];
+      pageFromRoot = page.split(sharedData.options.directory)[1];
     }
 
     console.log(`\n${pageFromRoot}`); //Root needs to full path - not '.' or whatever
@@ -69,7 +64,7 @@ function outputErrors(results, options) {
         // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
       } else if (error.type == "PageNotInTOC") {
         console.log(
-          `- ${error.type}: Page not in Table of Contents (${options.toc})`
+          `- ${error.type}: Page not in Table of Contents (${sharedData.options.toc})`
         );
         //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
         // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };

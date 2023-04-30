@@ -1,6 +1,7 @@
 import { logToFile } from "./helpers.js";
 import fs from "fs";
 import path from "path";
+import { sharedData } from "./shared_data.js";
 
 function isImage(file) {
   const imageExtensions = [".jpg", ".jpeg", ".png", ".svg", ".gif", ".webm"];
@@ -11,8 +12,8 @@ function isImage(file) {
 var otherFileTypes = []; // Just used for logging in function below.
 
 // Gets all image files in a directory.
-async function getAllImageFilesInDirectory(dir, options) {
-  options.log.includes("functions")
+async function getAllImageFilesInDirectory(dir) {
+  sharedData.options.log.includes("functions")
     ? console.log(`Function: getAllImageFilesInDirectory(${dir})`)
     : null;
 
@@ -24,7 +25,7 @@ async function getAllImageFilesInDirectory(dir, options) {
   for (let i = 0; i < files.length; i++) {
     const file = path.join(dir, files[i].name);
     if (files[i].isDirectory()) {
-      const subImages = await getAllImageFilesInDirectory(file, options);
+      const subImages = await getAllImageFilesInDirectory(file);
       images.push(...subImages);
     } else if (isImage(file)) {
       images.push(file);
@@ -40,16 +41,16 @@ async function getAllImageFilesInDirectory(dir, options) {
 }
 
 // Checks if any images in the options.directory
-async function checkImageOrphansGlobal(results, options) {
-  options.log.includes("functions")
+async function checkImageOrphansGlobal(results) {
+  sharedData.options.log.includes("functions")
     ? console.log("Function: checkImageOrphansGlobal")
     : null;
   const errors = [];
-  if (options.imagedir === "") return errors; // exit early.
+  if (sharedData.options.imagedir === "") return errors; // exit early.
 
-  const imagePath = path.resolve(options.root, options.imagedir);
+  const imagePath = path.resolve(sharedData.options.root, sharedData.options.imagedir);
   //console.log(`XXXXImagepath ${imagePath}`);
-  const allImagesFound = await getAllImageFilesInDirectory(imagePath, options);
+  const allImagesFound = await getAllImageFilesInDirectory(imagePath);
   //console.log(`XXXXallImagesFound ${JSON.stringify(allImagesFound, null, 2)}`);
   // Check all image files listed are in the array of local images we have
   const allImagesLinked = [];

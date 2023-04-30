@@ -1,9 +1,10 @@
 import { Link } from "./links.js";
+import { sharedData } from "./shared_data.js";
 
 // Returns slug for a string (markdown heading) using Vuepress algorithm.
 // Algorithm from chatgpt - needs testing.
-const processMarkdown = (contents, page, options) => {
-  options.log.includes("functions")
+const processMarkdown = (contents, page) => {
+  sharedData.options.log.includes("functions")
     ? console.log("Function: processMarkdown")
     : null;
   const headings = [];
@@ -17,6 +18,8 @@ const processMarkdown = (contents, page, options) => {
   const unHandledLinkTypes = [];
   let redirectTo; //Pages that contain <Redirect to="string"/> links
 
+  //console.log("SHARED_DATA");
+  //console.log(sharedData);
   // Check if page is a redirect.
   // If it is, add to list then return.
   // Otherwise do other file processing.
@@ -48,7 +51,6 @@ const processMarkdown = (contents, page, options) => {
         urlLocalLinks,
         urlImageLinks,
         unHandledLinkTypes,
-        options,
         page
       );
     }
@@ -99,7 +101,6 @@ const processLineMarkdownLinks = (
   urlLocalLinks,
   urlImageLinks,
   unHandledLinkTypes,
-  options,
   page
 ) => {
   //const regex = /(?<prefix>[!@]?)\[(?<text>[^\]]+)\]\((?<url>\S+?)(?:\s+"(?<title>[^"]+)")?\)/g;
@@ -131,9 +132,9 @@ const processLineMarkdownLinks = (
         // TODO - prepend the standard URL
       }
     } else if (
-      options.site_url &&
-      (linkUrl.startsWith(`http://${options.site_url}`) ||
-        linkUrl.startsWith(`https://${options.site_url}`))
+      sharedData.options.site_url &&
+      (linkUrl.startsWith(`http://${sharedData.options.site_url}`) ||
+        linkUrl.startsWith(`https://${sharedData.options.site_url}`))
     ) {
       //console.log(link);
       linkType = "urlLocalLink";
@@ -214,9 +215,9 @@ const processLineMarkdownLinks = (
 
     let linkType = "";
     if (
-      options.site_url &&
-      (linkUrl.startsWith(`http://${options.site_url}`) ||
-        linkUrl.startsWith(`https://${options.site_url}`))
+      sharedData.options.site_url &&
+      (linkUrl.startsWith(`http://${sharedData.options.site_url}`) ||
+        linkUrl.startsWith(`https://${sharedData.options.site_url}`))
     ) {
       //console.log(link);
       linkType = "urlLocalLink";

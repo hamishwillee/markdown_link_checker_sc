@@ -2,10 +2,11 @@
 
 import fs from "fs";
 import path from "path";
+import { sharedData } from "./src/shared_data.js";
 //const path = require("path");
 import { program } from "commander";
 //const { program } = require("commander");
-import { logToFile } from "./src/helpers.js";
+import { logToFile, isMarkdown, isHTML, isImage } from "./src/helpers.js";
 import { outputErrors } from "./src/output_errors.js";
 
 import { slugifyVuepress } from "./src/slugify.js";
@@ -69,21 +70,27 @@ program
 // TODO PX4 special parsing - errors or pages we exclude by default.
 // Particular error types on particular pages?
 
-const options = program.opts();
-options.log ? null : (options.log = []);
+//const options = program.opts();
+sharedData.options = program.opts();
+sharedData.options.log ? null : (sharedData.options.log = []);
+sharedData.allMarkdownFiles = new Set([]);
+sharedData.allHTMLFiles = new Set([]);
+sharedData.allImageFiles = new Set([]);
+sharedData.allOtherFiles = new Set([]);
 
-const markdownDirectory = path.join(options.root, options.directory);
-if (options.log == "fast") {
+
+const markdownDirectory = path.join(sharedData.options.root, sharedData.options.directory);
+if (sharedData.options.log == "fast") {
   console.log(`MARKDOWN DIR ${markdownDirectory}`);
 }
 
 async () => {
   // Load JSON file containing file paths and reassign as array to the JSON path
-  options.files
-    ? (options.files = await loadJSONFileToReportOn(options.files))
-    : (options.files = []);
-  if (options.log == "quick") {
-    for (const file of options.files) {
+  sharedData.options.files
+    ? (sharedData.options.files = await loadJSONFileToReportOn(sharedData.options.files))
+    : (sharedData.options.files = []);
+  if (sharedData.options.log == "quick") {
+    for (const file of sharedData.options.files) {
       console.log(file);
     }
   }
@@ -95,7 +102,7 @@ async function loadJSONFileToReportOn(filePath) {
     const fileContent = await fs.promises.readFile(filePath, "utf8");
     let filesArray = JSON.parse(fileContent);
     // Array relative to root, so update to have full path
-    filesArray = filesArray.map((str) => path.join(options.root, str));
+    filesArray = filesArray.map((str) => path.join(sharedData.options.root, str));
 
     //console.log(filesArray);
     return filesArray;
@@ -105,15 +112,14 @@ async function loadJSONFileToReportOn(filePath) {
   }
 }
 
-const isMarkdown = (file) => path.extname(file).toLowerCase() === ".md";
-const isHtml = (file) => path.extname(file).toLowerCase() === ".html";
+
 const replaceDelimiter = (str, underscore) =>
   underscore ? str.replace(/\s+/g, "_") : str.replace(/\s+/g, "-");
 
-const processFile = async (file, options) => {
+const processFile = async (file) => {
   try {
     const contents = await fs.promises.readFile(file, "utf8");
-    const resultsForFile = processMarkdown(contents, file, options);
+    const resultsForFile = processMarkdown(contents, file);
     resultsForFile["page_file"] = file;
 
     // Call slugify slugifyVuepress() on each of the headings
@@ -134,22 +140,38 @@ const processFile = async (file, options) => {
   }
 };
 
-const processDirectory = async (dir, options) => {
-  if (options.log.includes("functions")) {
-    console.log(`processDirectory(${dir}, options)`);
+const processDirectory = async (dir) => {
+  if (sharedData.options.log.includes("functions")) {
+    console.log(`processDirectory(${dir}, sharedData.options)`);
   }
   const files = await fs.promises.readdir(dir, { withFileTypes: true });
   const results = [];
   for (let i = 0; i < files.length; i++) {
     const file = path.join(dir, files[i].name);
     if (files[i].isDirectory()) {
-      const subResults = await processDirectory(file, options);
+      const subResults = await processDirectory(file);
       results.push(...subResults);
-    } else if (isMarkdown(file) || isHtml(file)) {
-      const result = await processFile(file, options);
+    } else if (isMarkdown(file)) {
+      sharedData.allMarkdownFiles.add(file);
+      const result = await processFile(file);
       if (result) {
         results.push(result);
       }
+    }
+
+    else if (isHTML(file)) {
+      sharedData.allHTMLFiles.add(file);
+      const result = await processFile(file);
+      if (result) {
+        results.push(result);
+      }
+    }
+
+    else if (isImage(file)) {
+      sharedData.allImageFiles.add(file);
+    }
+    else {
+      sharedData.allOtherFiles.add(file);
     }
   }
   return results;
@@ -159,14 +181,14 @@ function filterErrors(errors) {
   // This method filters all errors against settings in the command line - such as pages to output.
   let filteredErrors = errors;
   // Filter results on specified file names (if any specified)
-  //console.log(`Number pages to filter: ${options.files.length}`);
-  if (options.files.length > 0) {
+  //console.log(`Number pages to filter: ${sharedData.options.files.length}`);
+  if (sharedData.options.files.length > 0) {
     filteredErrors = errors.filter((error) => {
       //console.log(`Error: ${error}`);
       //console.log(JSON.stringify(error, null, 2));
       //console.log(`Error page: ${error.page}`);
 
-      return options.files.includes(error.page);
+      return sharedData.options.files.includes(error.page);
     });
   }
   // Filter on other things - such as errors.
@@ -178,10 +200,10 @@ function filterErrors(errors) {
 //main function, after options et have been set up.
 (async () => {
   // process  containing markdown, return results which includes links, headings, id anchors
-  const results = await processDirectory(markdownDirectory, options);
+  const results = await processDirectory(markdownDirectory);
 
   // Process just the relative links to find errors like missing files, anchors
-  const errorsFromRelativeLinks = processRelativeLinks(results, options);
+  const errorsFromRelativeLinks = processRelativeLinks(results);
   if (!results.allErrors) {
     results.allErrors = [];
   }
@@ -189,28 +211,25 @@ function filterErrors(errors) {
 
   // Process just images linked in local file system - find errors like missing images.
   const errorsFromLocalImageLinks = await checkLocalImageLinks(
-    results,
-    options
+    results
   );
   //console.log(errorsFromLocalImageLinks)
   results["allErrors"].push(...errorsFromLocalImageLinks);
 
   // Process links to current site URL - should be relative links normally.
   const errorsFromUrlsToLocalSite = await processUrlsToLocalSource(
-    results,
-    options
+    results
   );
   //console.log(errorsFromUrlsToLocalSite)
   results["allErrors"].push(...errorsFromUrlsToLocalSite);
 
   // Check for page orphans - markdown files not linked anywhere and not in summary.
   // Guesses the table of contents file if not specified in options.toc
-  options.toc ? null : (options.toc = getPageWithMostLinks(results, options));
-  checkPageOrphans(results, options); // Perhaps should follow pattern of returning errors - currently updates results
+  sharedData.options.toc ? null : (sharedData.options.toc = getPageWithMostLinks(results));
+  checkPageOrphans(results); // Perhaps should follow pattern of returning errors - currently updates results
 
   const errorsGlobalImageOrphanCheck = await checkImageOrphansGlobal(
-    results,
-    options
+    results
   );
   results["allErrors"].push(...errorsGlobalImageOrphanCheck);
 
@@ -219,21 +238,21 @@ function filterErrors(errors) {
   const filteredResults = filterErrors(results.allErrors);
 
   // Output the errors as console.logs
-  outputErrors(filteredResults, options);
+  outputErrors(filteredResults);
 
   //make array and document options? ie. if includes ...
   const jsonFilteredErrors = JSON.stringify(filteredResults, null, 2);
   logToFile("./logs/filteredErrors.json", jsonFilteredErrors);
 
   // Log filtered errors to standard out
-  if (options.log.includes("filterederrors")) {
+  if (sharedData.options.log.includes("filterederrors")) {
     console.log(jsonFilteredErrors);
   }
 
   //make array and document options? ie. if includes ...
   const jsonAllResults = JSON.stringify(results, null, 2);
   logToFile("./logs/allResults.json", jsonAllResults);
-  if (options.log.includes("allresults")) {
+  if (sharedData.options.log.includes("allresults")) {
     console.log(jsonAllResults);
   }
 
@@ -241,7 +260,7 @@ function filterErrors(errors) {
   const jsonAllErrors = JSON.stringify(results.allErrors, null, 2);
   logToFile("./logs/allErrors.json", jsonAllErrors);
 
-  if (options.log.includes("allerrors")) {
+  if (sharedData.options.log.includes("allerrors")) {
     console.log(jsonAllErrors);
   }
   //console.log(`OPTIONS.LOG ${options.log}`);

@@ -1,4 +1,5 @@
 import fs from "fs/promises";
+import path from "path";
 
 // Log data to specified file path, replacing file.
 async function logToFile(filePath, dataString) {
@@ -10,5 +11,31 @@ async function logToFile(filePath, dataString) {
   }
 }
 
+const imageExtensions = new Set([
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".svg",
+  ".gif",
+  ".webm",
+]);
 
-export { logToFile };
+// Return true if file is an image.
+//Just looks at file extension.
+function isImage(file) {
+  const fileExtension = path.extname(file).toLowerCase();
+  return imageExtensions.has(fileExtension) ? true : false;
+}
+
+function isMarkdown(file) {
+  const fileExtension = path.extname(file).toLowerCase();
+  return fileExtension === ".md" ? true : false;
+}
+
+function isHTML(file) {
+  const fileExtension = path.extname(file).toLowerCase();
+  //console.log(`ext: ${fileExtension}`);
+  return fileExtension === ".html" || fileExtension === ".htm" ? true : false;
+}
+
+export { logToFile, isImage, isMarkdown, isHTML };

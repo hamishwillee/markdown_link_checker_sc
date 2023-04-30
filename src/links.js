@@ -1,4 +1,5 @@
 import path from "path";
+import { isImage, isMarkdown, isHTML } from "./helpers.js";
 
 class Link {
   address = "";
@@ -13,7 +14,6 @@ class Link {
 
   //isImage = false;
   static linkTypes;
-  static imageExtensions;
   static {
     this.linkTypes = new Set([
       "unHandledLinkType",
@@ -28,15 +28,6 @@ class Link {
       "ftpLink", // FTP URL (i.e. ftp://)
       "ftpsLink", // FTPS URL (i.e. ftps://)
       "mailtoLink", // Mailto link (ie mailto whatever)
-    ]);
-
-    this.imageExtensions = new Set([
-      ".jpg",
-      ".jpeg",
-      ".png",
-      ".svg",
-      ".gif",
-      ".webm",
     ]);
   }
 
@@ -118,10 +109,10 @@ class Link {
   findType() {
     let linkType = "unHandledLinkType";
 
-    this.isImage = this.address && this.checkImage(this.address) ? true : false; //only if address is true.
+    this.isImage = this.address && isImage(this.address) ? true : false; //only if address is true.
     this.isMarkdown =
-      this.address && this.checkMarkdown(this.address) ? true : false; //only if address is true.
-    this.isHTML = this.address && this.checkHTML(this.address) ? true : false; //only if address is true.
+      this.address && isMarkdown(this.address) ? true : false; //only if address is true.
+    this.isHTML = this.address && isHTML(this.address) ? true : false; //only if address is true.
     const regexpTestProtocol = /^[a-z]+:/i;
 
     //console.log(`Linkcheck1: ${this.address} `);
@@ -197,23 +188,6 @@ class Link {
     return path.resolve(path.dirname(this.page), this.address);
   }
 
-  // Return true if file is an image.
-  //Just looks at file extension.
-  checkImage(file) {
-    const fileExtension = path.extname(file).toLowerCase();
-    return Link.imageExtensions.has(fileExtension) ? true : false;
-  }
-
-  checkMarkdown(file) {
-    const fileExtension = path.extname(file).toLowerCase();
-    return fileExtension === ".md" ? true : false;
-  }
-
-  checkHTML(file) {
-    const fileExtension = path.extname(file).toLowerCase();
-    //console.log(`ext: ${fileExtension}`);
-    return fileExtension === ".html" || fileExtension === ".htm" ? true : false;
-  }
 }
 
 export { Link };

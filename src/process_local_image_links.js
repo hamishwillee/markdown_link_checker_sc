@@ -1,11 +1,12 @@
 import path from "path";
 import fs from "fs";
+import { sharedData } from "./shared_data.js";
+
 
 // Checks if every image in every markdown page (results.page.relativeImageLinks) is present on the file system.
 // - results is the array of information coming out of markdown parsing.
-// - options just use to configure logging
-async function checkLocalImageLinks(results, options) {
-  options.log.includes("functions") ? console.log(`Function: checkLocalImageLinks()`) : null;
+async function checkLocalImageLinks(results) {
+  sharedData.options.log.includes("functions") ? console.log(`Function: checkLocalImageLinks()`) : null;
   const errors = [];
   const promises = [];
 
@@ -14,8 +15,8 @@ async function checkLocalImageLinks(results, options) {
 
     page.relativeImageLinks.forEach((link, index, array) => {
       //console.log(`XYYXLINK: ${JSON.stringify(link, null, 2)}`);
-      //console.log(`options.root: ${options.root}`);
-      //console.log(`options.directory: ${options.directory}`);
+      //console.log(`sharedData.options.root: ${sharedData.options.root}`);
+      //console.log(`sharedData.options.directory: ${sharedData.options.directory}`);
       //console.log(`link.linkUrlt: ${link.url}`);
       //console.log(`dirname: ${path.dirname(page.page_file)}`);
 

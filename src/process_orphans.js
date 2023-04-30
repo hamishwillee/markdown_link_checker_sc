@@ -1,10 +1,11 @@
 import { logToFile } from "./helpers.js";
 import path from "path";
+import { sharedData } from "./shared_data.js";
 
 // Gets page with most links. Supposed to be used on the allResults object that is an array of objects about each page.
 // Will use to get the summary.
-function getPageWithMostLinks(pages, options) {
-  if (options.log.includes("functions")) {
+function getPageWithMostLinks(pages) {
+  if (sharedData.options.log.includes("functions")) {
     console.log("Function: getPageWithMostLinks");
   }
   return pages.reduce(
@@ -23,7 +24,7 @@ function getPageWithMostLinks(pages, options) {
 
 // Get any orphans (no links from summary and no links at all)
 //
-function checkPageOrphans(results, options) {
+function checkPageOrphans(results) {
   const resultObj = {};
   const allInternalAbsLinks = [];
 
@@ -69,7 +70,7 @@ function checkPageOrphans(results, options) {
     if (!allInternalAbsLinks.some((absLink) => absLink === filePath)) {
       if (obj.redirectTo) {
         //do nothing
-      } else if (obj.page_file === options.toc) {
+      } else if (obj.page_file === sharedData.options.toc) {
         //do nothing
       } else {
         //if it a redirect file then it shouldn't be linked.
@@ -84,13 +85,13 @@ function checkPageOrphans(results, options) {
       }
     }
 
-    const summaryFileLinks = resultObj[options.toc];
+    const summaryFileLinks = resultObj[sharedData.options.toc];
 
     if (summaryFileLinks && !summaryFileLinks.some((absLink) => absLink === filePath)) {
       if (obj.redirectTo) {
         // do nothing /-if it a redirect file then it shouldn't be linked.
 		//console.log(`EXECUTED: ${obj.page_file} in redirect`)
-      } else if (obj.page_file === options.toc) {
+      } else if (obj.page_file === sharedData.options.toc) {
         //do nothing - summary shouldt be error for summary.
       } else {
         
@@ -133,7 +134,7 @@ function checkPageOrphans(results, options) {
     //console.log("All files referenced at least once");
   }
 
-  if (options.log.includes("quick")) {
+  if (sharedData.options.log.includes("quick")) {
     //console.log(resultObj);
     const jsonFilesWithAbsoluteLinks = JSON.stringify(resultObj, null, 2);
     logToFile(
