@@ -18,7 +18,7 @@ class Link {
     this.linkTypes = new Set([
       "unHandledLinkType",
       "urlLink", // http(s) link
-      "urlLocalLinks", // URL (http) pointing to current site
+      "urlLocalLink", // URL (http) pointing to current site
       "urlImageLink", // https(s) link to image
       "relativeImageLink", // relative link to image
       "relativeLink", // relative link to another page/file
@@ -42,13 +42,13 @@ class Link {
 
   constructor({ page, url, type, text, title }) {
     //console.log(      `Link: constructor args: ${JSON.stringify(arguments, null, 2)}`    );
-    /*
+    
     if (page) {
       this.page = page;
     } else {
       throw new Error("Link: page argument is required.");
     }
-    */
+    
     if (url) {
       this.url = url;
       this.splitURL(this.url);

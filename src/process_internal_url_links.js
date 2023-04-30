@@ -1,4 +1,5 @@
 import path from "path";
+import { UrlToLocalSiteError} from "./errors.js"
 
 // An array of errors given a results object that contains our array of objects containing urls that link to our current site.
 // The options not used at this point.
@@ -9,13 +10,8 @@ function processUrlsToLocalSource(results, options) {
 
     page.urlLocalLinks.forEach((link, index, array) => {
       //console.log(`LINK: ${link}`);
-      const error = {
-        type: "UrlToLocalSite",
-        page: `${page.page_file}`,
-        linkUrl: `${link.linkUrl}`,
-        linkAnchor: `${link.linkAnchor}`,
-        linkText: `${link.linkText}`,
-      };
+      
+      const error = new UrlToLocalSiteError({link: link})
       errors.push(error);
     });
   });

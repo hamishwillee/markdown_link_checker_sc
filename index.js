@@ -113,7 +113,7 @@ const replaceDelimiter = (str, underscore) =>
 const processFile = async (file, options) => {
   try {
     const contents = await fs.promises.readFile(file, "utf8");
-    const resultsForFile = processMarkdown(contents, options);
+    const resultsForFile = processMarkdown(contents, file, options);
     resultsForFile["page_file"] = file;
 
     // Call slugify slugifyVuepress() on each of the headings

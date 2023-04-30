@@ -1,5 +1,5 @@
 import path from "path";
-import { Error } from "./errors.js"
+import { /*LinkError,*/ CurrentFileMissingAnchorError, LinkedFileMissingAnchorError, LinkedInternalPageMissingError, InternalLinkToHTMLError, UrlToLocalSiteError} from "./errors.js"
 
 // An array of errors given a results object that contains our array of objects containing relativeLinks (and other information).
 // The options is used for explaining if it should fallback to HTML
@@ -22,16 +22,9 @@ function processRelativeLinks(results, options) {
             page.anchors_tag_ids.includes(link.anchor)
           )
         ) {
-          const error = {
-            type: "LocalMissingAnchor",
-            page: `${page.page_file}`,
-            linkAnchor: `${link.anchor}`,
-            linkText: `${link.text}`,
-          };
-          console.log(`XXXOrigError: ${JSON.stringify(error, null, 2)}`);
-          const myError = new Error("LocalMissingAnchor", link); 
-          console.log(`XXXError: ${JSON.stringify(myError, null, 2)}`);
-          errors.push 
+          // There is no heading link to specified anchor in current page
+          const error = new CurrentFileMissingAnchorError({link: link}); 
+          console.log(`XXX_LMA_Error: ${JSON.stringify(error, null, 2)}`);
           errors.push(error);
         }
       } else {
@@ -83,6 +76,11 @@ function processRelativeLinks(results, options) {
               ) || null;
 
             if (linkedHTMLFile) {
+
+              const newError = new InternalLinkToHTMLError({link: link});
+             console.log(newError);
+
+
               const error = {
                 type: "InternalLinkToHTML",
                 page: `${page.page_file}`,
@@ -91,6 +89,8 @@ function processRelativeLinks(results, options) {
                 linkUrlFilePath: `${linkAbsoluteFilePath}`,
               };
 
+
+              errors.push(newError);
               errors.push(error);
               linkedFile = linkedHTMLFile;
             }
@@ -99,13 +99,7 @@ function processRelativeLinks(results, options) {
 
         if (!linkedFile) {
           //File not found as .html or md
-          const error = {
-            type: "InternalLinkMissingFile",
-            page: `${page.page_file}`,
-            linkUrl: `${link.url}`,
-            linkText: `${link.text}`,
-            linkUrlFilePath: `${linkAbsoluteFilePath}`,
-          };
+          const error = new LinkedInternalPageMissingError({link: link})
           //console.log(error);
           errors.push(error);
         } else {
@@ -124,8 +118,13 @@ function processRelativeLinks(results, options) {
           } else {
 
             // File exists but does not contain matching anchor
+            const newError = new LinkedFileMissingAnchorError({link: link})
+            console.log("LOOK HERE LinkedFileMissingAnchorError ");
+            newError.output();
+            throw Error("arse");
+
             const error = {
-              type: "InternalMissingAnchor",
+              type: "LinkedFileMissingAnchor",
               page: `${page.page_file}`,
               linkAnchor: `${link.anchor}`,
               linkUrl: `${link.url}`,

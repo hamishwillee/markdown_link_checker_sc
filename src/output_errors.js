@@ -1,3 +1,5 @@
+//import { /*LinkError,*/ CurrentFileMissingAnchorError, LinkedFileMissingAnchorError, LinkedInternalPageMissingError, InternalLinkToHTMLError, UrlToLocalSiteError} from "./errors.js"
+
 //Function that generates console and/or log output from an array of error objects.
 // - `results` is an array of error objects. These will have a `type` and a `page`. They may also have other values, depending on type of error - such as linkurl
 // - `options` has following properties:
@@ -5,6 +7,8 @@
 //   - root: A string representing the root directory of the files.
 //   - directory: A string representing file directory that is searched for files if not the root.
 //   - toc: A string indicating the table of contents file or summarry file. ?
+
+
 
 function outputErrors(results, options) {
   //console.log(results);
@@ -38,27 +42,27 @@ function outputErrors(results, options) {
 
     console.log(`\n${pageFromRoot}`); //Root needs to full path - not '.' or whatever
     for (const error of sortedByPageErrors[page]) {
-      if (error.type == "InternalLinkMissingFile") {
-        console.log(`- ${error.type}: ${error.linkUrl}`);
+      if (error.output) {
+        console.log("OUTPUT FROM ERROR OBJECT")
+        error.output();
+      }
+      console.log("OUTPUT FROM OLD STYLE OBJECT")
+      if (error.type == "LinkedInternalPageMissing") {
+        //console.log(`- ${error.type}: ${error.linkUrl}`);
         //console.log(`  ${error.type}: ${error.linkAnchor}, linkURL: ${error.linkUrl}`);
-        // { "type": "InternalLinkMissingFile", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}` };
-      } else if (error.type == "LocalMissingAnchor") {
+        // { "type": "LinkedInternalPageMissing", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}` };
+      } else if (error.type == "CurrentFileMissingAnchor") {
         // missing anchor in linked file that exists.
         //console.log(error);
         //console.log(          `- ${error.type}: ` +            "`[" +            `${error.linkText}](#${error.linkAnchor})` +            "` (Internal link without matching heading name or element id)"        );
-        console.log(
-          `- ${error.type}: ` +
-            "`[" +
-            `${error.linkText}](#${error.linkAnchor})` +
-            "`: anchor doesn't match any heading id or element id"
-        );
-        // `{ "type": "LocalMissingAnchor", "page": "${page.page_file}", "anchor": "${link.linkAnchor}", "linktext", "${link.linkText}"  }`;
-      } else if (error.type == "InternalMissingAnchor") {
+        //console.log( `- ${error.type}: ` + "`[" + `${error.linkText}](#${error.linkAnchor})` + "`: anchor doesn't match any heading id or element id" );
+        // `{ "type": "CurrentFileMissingAnchor", "page": "${page.page_file}", "anchor": "${link.linkAnchor}", "linktext", "${link.linkText}"  }`;
+      } else if (error.type == "LinkedFileMissingAnchor") {
         // missing anchor in linked file that exists.
         console.log(
           `- ${error.type}: #${error.linkAnchor} not found in ${error.linkUrlFilePath}`
         );
-        // { "type": "InternalMissingAnchor", "page": `${page.page_file}`, "linkAnchor": `${link.linkAnchor}`, "linkUrl": `${link.linkUrl}`, "linktext": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}` };
+        // { "type": "LinkedFileMissingAnchor", "page": `${page.page_file}`, "linkAnchor": `${link.linkAnchor}`, "linkUrl": `${link.linkUrl}`, "linktext": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}` };
       } else if (error.type == "InternalLinkToHTML") {
         console.log(`- ${error.type}: ${error.linkUrl} (should be ".md"?)`);
         //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
@@ -82,9 +86,7 @@ function outputErrors(results, options) {
         //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
         // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
       } else if (error.type == "UrlToLocalSite") {
-        console.log(
-          `- ${error.type}: Link is URL but should be a relative link: \\[${error.linkText}](${error.linkUrl})`
-        );
+        //console.log( `- ${error.type}: Link is URL but should be a relative link: \\[${error.linkText}](${error.linkUrl})` );
         //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
         // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
       } else if (error.type == "OrphanedImage") {
