@@ -54,7 +54,7 @@ class LinkedFileMissingAnchorError extends LinkError {
   }
   output() {
     console.log(
-      `- ${this.type}: #${this.link.anchor} not found in ${error.link.path} ?ADDFULLLINK?`
+      `- ${this.type}: #${this.link.anchor} not found in ${this.link.address} (${this.link.getAbsolutePath()})`
     );
   }
 }

@@ -15,7 +15,7 @@ function processRelativeLinks(results) {
     : null;
   const errors = [];
 
-  console.log(sharedData);
+  //console.log(sharedData);
 
   results.forEach((page, index, array) => {
     //console.log(`PAGE:${JSON.stringify(page, null, 2)}`);
@@ -56,11 +56,9 @@ function processRelativeLinks(results) {
               linkedFile.hasOwnProperty("page_file") &&
               path.normalize(linkedFile.page_file) === linkAbsoluteFilePath
           ) || null;
+
         if (!linkedFile) {
-          if (
-            sharedData.options.tryMarkdownforHTML &&
-            linkAbsoluteFilePath.endsWith(".html")
-          ) {
+          if (sharedData.options.tryMarkdownforHTML && link.isHTML) {
             // The file was HTML so it might be a file extension mistake (linking to html instead of md)
             // In this case we'll try find it.
 
@@ -77,18 +75,8 @@ function processRelativeLinks(results) {
               ) || null;
 
             if (linkedHTMLFile) {
-              const newError = new InternalLinkToHTMLError({ link: link });
-              console.log(newError);
-
-              const error = {
-                type: "InternalLinkToHTML",
-                page: `${page.page_file}`,
-                linkUrl: `${link.url}`,
-                linkText: `${link.text}`,
-                linkUrlFilePath: `${linkAbsoluteFilePath}`,
-              };
-
-              errors.push(newError);
+              const error = new InternalLinkToHTMLError({ link: link });
+              console.log(error);
               errors.push(error);
               linkedFile = linkedHTMLFile;
             }
@@ -103,7 +91,7 @@ function processRelativeLinks(results) {
         } else {
           // There is a linked file, so now see if there are anchors, and whether they work
 
-          if (!link.linkAnchor) {
+          if (!link.anchor) {
             // No anchors, so go to next step
             //null
           } else if (
@@ -112,22 +100,10 @@ function processRelativeLinks(results) {
             linkedFile.anchors_tag_ids.includes(link.anchor)
           ) {
             //
-            //do nothing - we're good
+            //do nothing - the linked page includes the anchor from this link
           } else {
             // File exists but does not contain matching anchor
-            const newError = new LinkedFileMissingAnchorError({ link: link });
-            console.log("LOOK HERE LinkedFileMissingAnchorError ");
-            newError.output();
-            throw Error("arse");
-
-            const error = {
-              type: "LinkedFileMissingAnchor",
-              page: `${page.page_file}`,
-              linkAnchor: `${link.anchor}`,
-              linkUrl: `${link.url}`,
-              linkText: `${link.text}`,
-              linkUrlFilePath: `${linkAbsoluteFilePath}`,
-            };
+            const error = new LinkedFileMissingAnchorError({ link: link });
             errors.push(error);
           }
         }

@@ -182,6 +182,11 @@ const processLineMarkdownLinks = (
         //console.log("This is a relative link");
         break;
       }
+      case "relativeHTMLLink": {
+        relativeLinks.push(link); // This is HTML link handled in same code.
+        //console.log("This is a relative link");
+        break;
+      }
       default: {
         unHandledLinkTypes.push(link);
         console.log(`This is an unhandled link type: ${link.type}`);
@@ -264,6 +269,12 @@ const processLineMarkdownLinks = (
         //console.log("This is a relative link");
         break;
       }
+      case "relativeHTMLLink": {
+        relativeLinks.push(link); // This is an anchor link - but currently handled in the same code.
+        //console.log("This is a relative link");
+        break;
+      }
+
       default: {
         unHandledLinkTypes.push(link);
         console.log(`This is an unhandled link type: ${link.type}`);
@@ -339,6 +350,11 @@ const processLineMarkdownLinks = (
         //console.log("This is a relative link");
         break;
       }
+      case "relativeHTMLLink": {
+        relativeLinks.push(link); // This is an HTML link.
+        break;
+      }
+
       default: {
         unHandledLinkTypes.push(link);
         console.log(`This is an unhandled link type: ${link.type}`);

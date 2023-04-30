@@ -54,12 +54,10 @@ function outputErrors(results) {
         // `{ "type": "CurrentFileMissingAnchor", "page": "${page.page_file}", "anchor": "${link.linkAnchor}", "linktext", "${link.linkText}"  }`;
       } else if (error.type == "LinkedFileMissingAnchor") {
         // missing anchor in linked file that exists.
-        console.log(
-          `- ${error.type}: #${error.linkAnchor} not found in ${error.linkUrlFilePath}`
-        );
+        //console.log( `- ${error.type}: #${error.linkAnchor} not found in ${error.linkUrlFilePath}` );
         // { "type": "LinkedFileMissingAnchor", "page": `${page.page_file}`, "linkAnchor": `${link.linkAnchor}`, "linkUrl": `${link.linkUrl}`, "linktext": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}` };
       } else if (error.type == "InternalLinkToHTML") {
-        console.log(`- ${error.type}: ${error.linkUrl} (should be ".md"?)`);
+        // console.log(`- ${error.type}: ${error.linkUrl} (should be ".md"?)`);
         //console.log(`  ${error.type}: linkURL: ${error.linkUrl} ends in ".html"`);
         // { "type": "InternalLinkToHTML", "page": `${page.page_file}`, "linkUrl": `${link.linkUrl}`, "linkText": `${link.linkText}`, "linkUrlFilePath": `${linkAbsoluteFilePath}`  };
       } else if (error.type == "PageNotInTOC") {
