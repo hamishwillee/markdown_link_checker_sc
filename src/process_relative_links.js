@@ -33,7 +33,7 @@ function processRelativeLinks(results) {
         ) {
           // There is no heading link to specified anchor in current page
           const error = new CurrentFileMissingAnchorError({ link: link });
-          console.log(`XXX_LMA_Error: ${JSON.stringify(error, null, 2)}`);
+          //console.log(`XXX_LMA_Error: ${JSON.stringify(error, null, 2)}`);
           errors.push(error);
         }
       } else {

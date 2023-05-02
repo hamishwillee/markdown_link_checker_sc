@@ -15,11 +15,23 @@
 
 ## Heading Two
 
-## Heading Two
+
+
+
+## Image tests
+
+
+<img src="../../assets/qgc/setup/sensor/sensor_orientation_set_orientations.jpg" style="width: 600px;"/>
+   
+![image link text 1](../assets/image_link1.jpg)
 
 ## Heading Two 1
 
 ## Heading Two 2
+
+This link not handled well
+
+<a href="http://www.craftandtheoryllc.com/telemetry-cable"><img src="../../assets/hardware/telemetry/craft_and_theory_frsky_telemetry_cables.jpg" alt="Purchase cable here from Craft and Theory"></a>
 
 
 ### Heading Three
@@ -43,7 +55,12 @@ A link enbd line [Link end line](#anchor-to_this-page-end-line)
 
 Two links in line line [Link 1 or 2 in Line](#anchor--lin1-inlinkto_this-page-end-line) and [Link 2 In Line Line two](#anchor-link2-inlin=to_this-page-end-line2) fred
 
-![image link text 1](../assets/image_link1.jpg)
+
+  <a href="someurl1" title="some title1">somelink text1</a>  
+  
+    <a href="someurl2">somelink text2</a>  
+	
+  <a title="some title 3" href="some url3" >somelink text3</a>
 
  dfsafd ![image link text 2](../assets/image_link2.jpg)
 
@@ -68,3 +85,9 @@ A [first test params](https://example.com/path/to/resource?param1=value1&param2=
 A [first test params](https://example.com/path/to/resource#secondanchor?paramd1=value1&param2=value2)
 
 asfd [CBRK_VTOLARMING](../advanced_config/parameter_reference.md#CBRK_VTOLARMING) dfadf
+
+
+[Internal link to missing heading in test2](test2.md#some-unikely-heading)
+
+
+[Internal link to an html file](ffred.htm;#some-unikely-heading)

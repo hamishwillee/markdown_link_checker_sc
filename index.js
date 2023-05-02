@@ -98,6 +98,9 @@ async () => {
 
 // Function for loading JSON file that contains files to report on
 async function loadJSONFileToReportOn(filePath) {
+  sharedData.options.log.includes("functions")
+    ? console.log(`Function: loadJSONFileToReportOn(): filePath: ${filePath}`)
+    : null;
   try {
     const fileContent = await fs.promises.readFile(filePath, "utf8");
     let filesArray = JSON.parse(fileContent);
@@ -117,6 +120,9 @@ const replaceDelimiter = (str, underscore) =>
   underscore ? str.replace(/\s+/g, "_") : str.replace(/\s+/g, "-");
 
 const processFile = async (file) => {
+  sharedData.options.log.includes("functions")
+    ? console.log(`Function: processFile(): file: ${file}`)
+    : null;
   try {
     const contents = await fs.promises.readFile(file, "utf8");
     const resultsForFile = processMarkdown(contents, file);
@@ -141,13 +147,14 @@ const processFile = async (file) => {
 };
 
 const processDirectory = async (dir) => {
-  if (sharedData.options.log.includes("functions")) {
-    console.log(`processDirectory(${dir}, sharedData.options)`);
-  }
+  sharedData.options.log.includes("functions")
+    ? console.log(`Function: processDirectory(): dir: ${dir}`)
+    : null;
   const files = await fs.promises.readdir(dir, { withFileTypes: true });
   const results = [];
   for (let i = 0; i < files.length; i++) {
     const file = path.join(dir, files[i].name);
+    //console.log(`XxxxXprocessDirectory: file: ${file}`);
     if (files[i].isDirectory()) {
       const subResults = await processDirectory(file);
       results.push(...subResults);
@@ -178,17 +185,21 @@ const processDirectory = async (dir) => {
 };
 
 function filterErrors(errors) {
+  sharedData.options.log.includes("functions")
+    ? console.log(`Function: filterErrors()`)
+    : null;
   // This method filters all errors against settings in the command line - such as pages to output.
   let filteredErrors = errors;
   // Filter results on specified file names (if any specified)
   //console.log(`Number pages to filter: ${sharedData.options.files.length}`);
   if (sharedData.options.files.length > 0) {
     filteredErrors = errors.filter((error) => {
-      //console.log(`Error: ${error}`);
+      //console.log(`UError: ${error}`);
       //console.log(JSON.stringify(error, null, 2));
-      //console.log(`Error page: ${error.page}`);
-
-      return sharedData.options.files.includes(error.page);
+      //console.log(`UError page: ${error.page}`);
+      const filterResult = sharedData.options.files.includes(error.page);
+      //console.log(`filterResult: ${filterResult}`);
+      return filterResult;
     });
   }
   // Filter on other things - such as errors.

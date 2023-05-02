@@ -5,7 +5,7 @@ import { sharedData } from "./shared_data.js";
 // Algorithm from chatgpt - needs testing.
 const processMarkdown = (contents, page) => {
   sharedData.options.log.includes("functions")
-    ? console.log("Function: processMarkdown")
+    ? console.log(`Function: processMarkdown(): page: ${page}`)
     : null;
   const headings = [];
   //const anchors = [];
@@ -103,6 +103,9 @@ const processLineMarkdownLinks = (
   unHandledLinkTypes,
   page
 ) => {
+    sharedData.options.log.includes("functions")
+    ? console.log(`Function: processLineMarkdownLinks(): page: ${page}`)
+    : null;
   //const regex = /(?<prefix>[!@]?)\[(?<text>[^\]]+)\]\((?<url>\S+?)(?:\s+"(?<title>[^"]+)")?\)/g;
   const regex =
     /(?<prefix>[!@]?)\[(?<text>[^\]]*)\]\((?<url>\S+?)(?:\s+"(?<title>[^"]+)")?\)/g;
@@ -148,7 +151,7 @@ const processLineMarkdownLinks = (
       title: linkTitle,
       type: linkType,
     });
-    console.log(`XXLINKTEST: ${JSON.stringify(link, null, 2)}`);
+    //console.log(`XXLINKTESTnewLink: ${JSON.stringify(link, null, 2)}`);
 
     // For now, dump in different arrays. Might just add to one array eventually
     switch (link.type) {
@@ -305,7 +308,7 @@ const processLineMarkdownLinks = (
 
     //const link = new Link(linkUrl, linkText, linkTitle);
     const link = new Link({
-      page: "thepagestilltobesorted",
+      page: page,
       url: linkUrl,
       text: linkText,
       title: linkTitle /* type: linkType */,

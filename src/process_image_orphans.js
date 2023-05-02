@@ -2,6 +2,7 @@ import { logToFile } from "./helpers.js";
 import fs from "fs";
 import path from "path";
 import { sharedData } from "./shared_data.js";
+import { OrphanedImageError } from "./errors.js";
 
 function isImage(file) {
   const imageExtensions = [".jpg", ".jpeg", ".png", ".svg", ".gif", ".webm"];
@@ -46,35 +47,41 @@ async function checkImageOrphansGlobal(results) {
     ? console.log("Function: checkImageOrphansGlobal")
     : null;
   const errors = [];
-  if (sharedData.options.imagedir === "") return errors; // exit early.
+  let allImagesFound = [];
 
-  const imagePath = path.resolve(sharedData.options.root, sharedData.options.imagedir);
-  //console.log(`XXXXImagepath ${imagePath}`);
-  const allImagesFound = await getAllImageFilesInDirectory(imagePath);
-  //console.log(`XXXXallImagesFound ${JSON.stringify(allImagesFound, null, 2)}`);
-  // Check all image files listed are in the array of local images we have
+  if (sharedData.options.imagedir !== "") {
+    const imagePath = path.resolve(
+      sharedData.options.root,
+      sharedData.options.imagedir
+    );
+
+    allImagesFound = await getAllImageFilesInDirectory(imagePath);
+  }
+
+  sharedData.allImageFiles.forEach((value, valueAgain, set) => {
+    const imagePath = path.resolve(sharedData.options.root, value);
+    //console.log('val: ' + value);
+    allImagesFound.push(imagePath);
+  });
+
+  // Check all image files listed are in the array of local images we have (this is from the options.images directory)
   const allImagesLinked = [];
   results.forEach((page) => {
     page.relativeImageLinks.forEach((link) => {
-
-      const fullImagePath = path.join(
-        path.dirname(page.page_file),
-        link.linkUrl
-      );
-      //console.log(`XXXXfullImagePath: ${fullImagePath}`);
+      const fullImagePath = link.getAbsolutePath();
       allImagesLinked.push(fullImagePath);
     });
   });
 
-  //console.log(`XXXXallImagesLinked ${JSON.stringify(allImagesLinked, null, 2)}`);
-  // Check if we have any images in our file system that are not linked
+  //console.log(`XXXXallImagesFound ${JSON.stringify(allImagesFound, null, 2)}`);
+  //console.log( `XXXXallImagesLinked ${JSON.stringify(allImagesLinked, null, 2)}`  );
+
+  // Add the image/assets directory to all the files found in the markdown directory.
+  //
 
   allImagesFound.forEach((image) => {
     if (!allImagesLinked.includes(image)) {
-      const error = {
-        type: "OrphanedImage",
-        page: `${image}`,
-      };
+      const error = new OrphanedImageError({ file: image });
       errors.push(error);
     }
   });

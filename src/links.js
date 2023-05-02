@@ -1,5 +1,6 @@
 import path from "path";
 import { isImage, isMarkdown, isHTML } from "./helpers.js";
+import { sharedData } from "./shared_data.js";
 
 class Link {
   address = "";
@@ -32,7 +33,9 @@ class Link {
   }
 
   constructor({ page, url, type, text, title }) {
-    //console.log(      `Link: constructor args: ${JSON.stringify(arguments, null, 2)}`    );
+    sharedData.options.log.includes("functions")
+    ? console.log("Link:constructor")
+    : null;
 
     if (page) {
       this.page = page;
@@ -107,6 +110,9 @@ class Link {
   // This is only used if the type is not specified as an argument.
   // Uses file extension etc, so should be run after SplitUrl() which finds the address
   findType() {
+    sharedData.options.log.includes("functions")
+    ? console.log("Link:findType()")
+    : null;
     let linkType = "unHandledLinkType";
 
     this.isImage = this.address && isImage(this.address) ? true : false; //only if address is true.
@@ -184,6 +190,9 @@ class Link {
 
   //get absolute path to link, if this is a relative URL link.
   getAbsolutePath() {
+    sharedData.options.log.includes("functions")
+    ? console.log(`Link:getAbsolutePath: page: ${this.page}, address: ${this.address} `)
+    : null;
     if (!this.isRelative) throw new Error("Link:getAbsolutePath() called on non-relative path");
     return path.resolve(path.dirname(this.page), this.address);
   }
