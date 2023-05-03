@@ -1,9 +1,19 @@
 import fs from "fs/promises";
 import path from "path";
+import { sharedData } from "./shared_data.js";
 
 // Log data to specified file path, replacing file.
 async function logToFile(filePath, dataString) {
+  sharedData.options.log.includes("functions")
+  ? console.log(`Function: logToFile(${filePath}, dataString))`)
+  : null;
+  if (!sharedData.options.logtofile) {
+     return;
+  }
+
   try {
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+
     await fs.writeFile(filePath, dataString);
     //console.log("Data written to file");
   } catch (err) {
