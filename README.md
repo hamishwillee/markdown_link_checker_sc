@@ -43,9 +43,9 @@ Currently matches:
 
 There are heaps of link formats it does not match:
 
-- <http://www.whatever.com> - doesn't support autolinks
-- www.fred.com - Doesn't support auto-links external.
-- [![image title](imageurl)](linkurl)- Doesn't properly support a link around an image.
+- `<http://www.whatever.com>` - doesn't support autolinks
+- `www.fred.com` - Doesn't support auto-links external.
+- `[![image title](imageurl)](linkurl)`- Doesn't properly support a link around an image.
 - `linkreference: linkurl` - Doesn't support reference links (which would be linked like `[link text][linkreference]`
 
 

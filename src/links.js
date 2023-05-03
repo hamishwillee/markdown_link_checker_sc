@@ -140,32 +140,24 @@ class Link {
       }
     } else {
       // We have an address - so it is either a URL or relative of some kind
-      //console.log(`Linkcheck5: ${this.address} `);
 
       if (this.address.startsWith("ftp://")) {
-        //console.log(`Linkcheck6: ${this.address} `);
         linkType = "ftpLink";
       } else if (this.address.startsWith("ftps://")) {
-        //console.log(`Linkcheck67 ${this.address} `);
         linkType = "ftpsLink";
       } else if (this.address.startsWith("mailto:")) {
-        //console.log(`Linkcheck8: ${this.address} `);
         linkType = "mailtoLink";
       } else if (
         this.address.startsWith("http:") ||
         this.address.startsWith("https:")
       ) {
-        //console.log(`Linkcheck9 is HTTP: ${this.address} `);
         linkType = this.isImage ? "urlImageLink" : "urlLink";
       } else if (regexpTestProtocol.test(this.address)) {
         // This is a protocol, but not one we handle.
-        // Leave type as unhandled
-        console.log(
-          "NN The string starts with an unhandled protocol - remove at some point"
-        );
+        // Leave type as unhandled. Should perhaps have a log type for unhandled stuff
+        //console.log("NN The string starts with an unhandled protocol - remove at some point");
       } else {
         this.isRelative = true;
-        //console.log(`Linkcheck10 link is relative : ${this.address} `);
         // Must be a relative link of some kind.
         //this.absolutePath = this.getAbsolutePath();
         if (this.isImage) {

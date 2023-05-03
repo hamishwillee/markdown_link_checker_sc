@@ -199,7 +199,7 @@ const processLineMarkdownLinks = (
       }
       default: {
         unHandledLinkTypes.push(link);
-        //console.log(`This is an unhandled link type: ${link.type}`);
+        sharedData.options.log.includes("todo") ? console.log(`TODO: 3Unhandled link.type: ${link.type}`) : null;
         break;
       }
     }
@@ -301,7 +301,7 @@ const processLineMarkdownLinks = (
 
       default: {
         unHandledLinkTypes.push(link);
-        console.log(`This is an unhandled link type: ${link.type}`);
+        sharedData.options.log.includes("todo") ? console.log(`TODO: 2Unhandled link.type: ${link.type}`) : null;
         break;
       }
     }
@@ -382,7 +382,7 @@ const processLineMarkdownLinks = (
 
       default: {
         unHandledLinkTypes.push(link);
-        console.log(`This is an unhandled link type: ${link.type}`);
+        sharedData.options.log.includes("todo") ? console.log(`TODO: 1Unhandled link.type: ${link.type}`) : null;
         break;
       }
     }
