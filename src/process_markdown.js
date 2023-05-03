@@ -103,7 +103,7 @@ const processLineMarkdownLinks = (
   unHandledLinkTypes,
   page
 ) => {
-    sharedData.options.log.includes("functions")
+  sharedData.options.log.includes("functions")
     ? console.log(`Function: processLineMarkdownLinks(): page: ${page}`)
     : null;
   //const regex = /(?<prefix>[!@]?)\[(?<text>[^\]]+)\]\((?<url>\S+?)(?:\s+"(?<title>[^"]+)")?\)/g;
@@ -141,6 +141,13 @@ const processLineMarkdownLinks = (
     ) {
       //console.log(link);
       linkType = "urlLocalLink";
+    }
+
+    if (!linkUrl) {
+      // We should never get to this logging
+      console.log(
+        `WWregexMarkdownLinkAndImage: page: ${page}, linkUrl: ${linkUrl}, linkText: ${linkText}, linkTitle: ${linkTitle}, linkType: ${linkType}`
+      );
     }
 
     //Create link
@@ -192,7 +199,7 @@ const processLineMarkdownLinks = (
       }
       default: {
         unHandledLinkTypes.push(link);
-        console.log(`This is an unhandled link type: ${link.type}`);
+        //console.log(`This is an unhandled link type: ${link.type}`);
         break;
       }
     }
@@ -205,6 +212,7 @@ const processLineMarkdownLinks = (
   //title\s*[=]\s*(?<title>['"]?)([^'"\s>]+)\k<title>/i;
   const regexHTMLhref =
     /href\s*[=]\s*(?<quote>['"])(?<href>.*?)(?<!\\)\k<quote>/i;
+  const regexHTMLid = /id\s*[=]\s*(?<quote>['"])(?<id>.*?)(?<!\\)\k<quote>/i;
   for (const match of line.matchAll(regexHTMLLinkTotal)) {
     const attributes = match.groups.attributes;
     //console.log(`XXXXXattributes_s: ${attributes}`)
@@ -213,12 +221,20 @@ const processLineMarkdownLinks = (
     //console.log(`XXXXXlinktext: ${linktext}`)
     let linkTitle = "";
     let linkUrl = "";
+    let linkId = "";
     if (attributes) {
       const titlematch = attributes.match(regexHTMLTitle);
-      linkTitle =
-        titlematch && titlematch.groups.title ? titlematch.groups.title : "";
+      linkTitle = titlematch && titlematch.groups.title ? titlematch.groups.title : "";
       const hrefmatch = attributes.match(regexHTMLhref);
       linkUrl = hrefmatch && hrefmatch.groups.href ? hrefmatch.groups.href : "";
+      const idMatch = attributes.match(regexHTMLid);
+      linkId = idMatch && idMatch.groups.id ? idMatch.groups.id : "";
+    }
+    // If not linkUrl then this is probably and anchor link.
+    //
+    if (!linkUrl && linkId) {
+      // This is an anchor-only link. Skip to next found link
+      continue;
     }
 
     let linkType = "";
@@ -232,6 +248,11 @@ const processLineMarkdownLinks = (
     }
 
     //const link = new Link(linkUrl, linkText, linkTitle);
+    if (!linkUrl) {
+      //We should only get here for empty links.
+      console.log(         `WWregexHTMLmatchAtag: page: ${page}, linkUrl: ${linkUrl}, linkText: ${linkText}, linkTitle: ${linkTitle}, linkType: ${linkType}`      );
+    }
+
     const link = new Link({
       page: page,
       url: linkUrl,
@@ -307,6 +328,7 @@ const processLineMarkdownLinks = (
     }
 
     //const link = new Link(linkUrl, linkText, linkTitle);
+    //console.log(`WWregexHTML_matchImage: page: ${page}, linkUrl: ${linkUrl}, linkText: ${linkText}, linkTitle: ${linkTitle},`);
     const link = new Link({
       page: page,
       url: linkUrl,
