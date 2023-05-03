@@ -6,7 +6,6 @@ Probably never coming out of alpha. Bit of fun.
 Markdown link checker in node.
 Better handling of internal link checking.
 
-
 Current version only does internal link checking
 
 ```
@@ -14,9 +13,11 @@ Usage: markdown_link_checker_sc [options]
 
 Options:
   -r, --root <path>                   Root directory of your source (i.e. root of github repo). Use -d as well to specify a folder if docs are not in the root, or to just run on
-                                      particular subfolder (default: "D:\\github\\hamishwillee\\markdown_link_checker_sc")
+                                      particular subfolder. Defaults to current directory. (default: "D:\\github\\hamishwillee\\markdown_link_checker_sc")
   -d, --directory [directory]         The directory to search for markdown and html files, relative to root - such as: `en` for an English subfolder. Default empty (same as -r
                                       directory) (default: "")
+  -i, --imagedir [directory]          The directory to search for all image files for global orphan checking, relative to root - such as: `assets` or `en`. Default empty if not
+                                      explicitly set, and global orphan checking will not be done (default: "")
   -c, --headingAnchorSlugify [value]  Slugify approach for turning markdown headings into heading anchors. Currently support vuepress only and always (default: "vuepress")
   -t, --tryMarkdownforHTML [value]    Try a markdown file extension check if a link to HTML fails. (default: true)
   -l, --log <types...>                Export logs for debugging. Types: allerrors, filterederrors, allresults etc.
@@ -28,8 +29,61 @@ Options:
 ```
 
 
+## What link formats can it match
+
+Currently matches:
+- `\[Link text](url#anchor)`, `\[Link text](url#anchor?param1=value...)`, `\[Link text](url?param1=value...#anchor)`
+- `[Link text](url#anchor "title")`
+- `![Image alt](url)`
+- `<a href="someurl#someanchor?someparams" title="sometitle">some text</a>`
+- `<img src="someurl" title="sometitle" />`
+
+
+> **Note:** It uses simple regexp. If you have a link commented out, or inside a code block that may well be captured.
+
+There are heaps of link formats it does not match:
+
+- `<http://www.whatever.com>` - doesn't support autolinks
+- `www.fred.com` - Doesn't support auto-links external.
+- `[![image title](imageurl)](linkurl)`- Doesn't properly support a link around an image.
+- `linkreference: linkurl` - Doesn't support reference links (which would be linked like `[link text][linkreference]`
+
+
+Essentially lots of the other things https://github.github.com/gfm/ 
+
+
+The regex that drives this is very simple.
+
+
+There are many other alternatives, such as: https://github.com/tcort/markdown-link-check
+You might also use a tokenziker or round trip to HTML using something like https://marked.js.org/using_advanced#inline in future as HTML is eaiser to extract links from.
+
+This does catch a LOT of cases though, and is pretty quick.
+
+## TODO
+
+- Files passed in should be filtered to check if markdown and only use the markdown ones in the markdown areas.
+- Files passed in shoudl be filtered for image types.
+  All image types passed in should be checked to make sure they are not orphans.
+
+Anchors that are not url escaped can trip it up. 
+- You can URL escape them like this: [Airframe Reference](#underwater_robot_underwater_robot_hippocampus_uuv_%28unmanned_underwater_vehicle%29)
+- BUT the comparision of the anchor is NOT url escaped, so you would need to convert back to compare.
+- URL escaping anchors and reversing for comparison is not done.
+
+Anchors defined in id in a or span are caught. Need to check those in video, div are also caught and used in internal link checking.
+
+A way to indicate that a particular error can be ignored - e.g. by page, type, maybe by line etc. Perhaps make this something that can be turned on and off.
+
+Get images in/around the source files that are not linked - i.e. orphan images.
+
+
+
+# How does it work?
+
 The way this works:
-- Sspecify the directory and it will search below that for all markdown/html files.
+- Specify the directory and it will searc
+h below that for all markdown/html files.
 - It loads each file, and:
   - parses for markdown and html style links for both page and image links.
   - parses headings and builds list of anchors in the page (as per vuepress) for those headings (poorly tested code)

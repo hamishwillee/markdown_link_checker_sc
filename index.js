@@ -1,29 +1,39 @@
 #!/usr/bin/env node
 
-//const fs = require("fs");
 import fs from "fs";
 import path from "path";
+import { sharedData } from "./src/shared_data.js";
 //const path = require("path");
 import { program } from "commander";
 //const { program } = require("commander");
-import { logToFile } from "./src/helpers.js";
+import { logToFile, isMarkdown, isHTML, isImage } from "./src/helpers.js";
 import { outputErrors } from "./src/output_errors.js";
 
 import { slugifyVuepress } from "./src/slugify.js";
 import { processMarkdown } from "./src/process_markdown.js";
 import { processRelativeLinks } from "./src/process_relative_links.js";
-import { processLocalImageLinks } from "./src/process_local_image_links.js";
+import { checkLocalImageLinks } from "./src/process_local_image_links.js";
 import { processUrlsToLocalSource } from "./src/process_internal_url_links.js";
+import {
+  checkPageOrphans,
+  getPageWithMostLinks,
+} from "./src/process_orphans.js";
+import { checkImageOrphansGlobal } from "./src/process_image_orphans.js";
 
 program
   .option(
     "-r, --root <path>",
-    "Root directory of your source (i.e. root of github repo). Use -d as well to specify a folder if docs are not in the root, or to just run on particular subfolder",
+    "Root directory of your source (i.e. root of github repo). Use -d as well to specify a folder if docs are not in the root, or to just run on particular subfolder. Defaults to current directory.",
     process.cwd()
   )
   .option(
     "-d, --directory [directory]",
     "The directory to search for markdown and html files, relative to root - such as: `en` for an English subfolder. Default empty (same as -r directory)",
+    ""
+  )
+  .option(
+    "-i, --imagedir [directory]",
+    "The directory to search for all image files for global orphan checking, relative to root - such as: `assets` or `en`. Default empty if not explicitly set, and global orphan checking will not be done",
     ""
   )
   .option(
@@ -60,21 +70,27 @@ program
 // TODO PX4 special parsing - errors or pages we exclude by default.
 // Particular error types on particular pages?
 
-const options = program.opts();
-options.log ? null : (options.log = []);
+//const options = program.opts();
+sharedData.options = program.opts();
+sharedData.options.log ? null : (sharedData.options.log = []);
+sharedData.allMarkdownFiles = new Set([]);
+sharedData.allHTMLFiles = new Set([]);
+sharedData.allImageFiles = new Set([]);
+sharedData.allOtherFiles = new Set([]);
 
-const markdownDirectory = path.join(options.root, options.directory);
-if (options.log == "fast") {
+
+const markdownDirectory = path.join(sharedData.options.root, sharedData.options.directory);
+if (sharedData.options.log == "fast") {
   console.log(`MARKDOWN DIR ${markdownDirectory}`);
 }
 
 async () => {
   // Load JSON file containing file paths and reassign as array to the JSON path
-  options.files
-    ? (options.files = await loadJSONFileToReportOn(options.files))
-    : (options.files = []);
-  if (options.log == "quick") {
-    for (const file of options.files) {
+  sharedData.options.files
+    ? (sharedData.options.files = await loadJSONFileToReportOn(sharedData.options.files))
+    : (sharedData.options.files = []);
+  if (sharedData.options.log == "quick") {
+    for (const file of sharedData.options.files) {
       console.log(file);
     }
   }
@@ -82,11 +98,14 @@ async () => {
 
 // Function for loading JSON file that contains files to report on
 async function loadJSONFileToReportOn(filePath) {
+  sharedData.options.log.includes("functions")
+    ? console.log(`Function: loadJSONFileToReportOn(): filePath: ${filePath}`)
+    : null;
   try {
     const fileContent = await fs.promises.readFile(filePath, "utf8");
     let filesArray = JSON.parse(fileContent);
     // Array relative to root, so update to have full path
-    filesArray = filesArray.map((str) => path.join(options.root, str));
+    filesArray = filesArray.map((str) => path.join(sharedData.options.root, str));
 
     //console.log(filesArray);
     return filesArray;
@@ -96,15 +115,17 @@ async function loadJSONFileToReportOn(filePath) {
   }
 }
 
-const isMarkdown = (file) => path.extname(file).toLowerCase() === ".md";
-const isHtml = (file) => path.extname(file).toLowerCase() === ".html";
+
 const replaceDelimiter = (str, underscore) =>
   underscore ? str.replace(/\s+/g, "_") : str.replace(/\s+/g, "-");
 
-const processFile = async (file, options) => {
+const processFile = async (file) => {
+  sharedData.options.log.includes("functions")
+    ? console.log(`Function: processFile(): file: ${file}`)
+    : null;
   try {
     const contents = await fs.promises.readFile(file, "utf8");
-    const resultsForFile = processMarkdown(contents, options);
+    const resultsForFile = processMarkdown(contents, file);
     resultsForFile["page_file"] = file;
 
     // Call slugify slugifyVuepress() on each of the headings
@@ -125,181 +146,60 @@ const processFile = async (file, options) => {
   }
 };
 
-const processDirectory = async (dir, options) => {
-  if (options.log.includes("functions")) {
-    console.log(`processDirectory(${dir}, options)`);
-  }
+const processDirectory = async (dir) => {
+  sharedData.options.log.includes("functions")
+    ? console.log(`Function: processDirectory(): dir: ${dir}`)
+    : null;
   const files = await fs.promises.readdir(dir, { withFileTypes: true });
   const results = [];
   for (let i = 0; i < files.length; i++) {
     const file = path.join(dir, files[i].name);
+    //console.log(`XxxxXprocessDirectory: file: ${file}`);
     if (files[i].isDirectory()) {
-      const subResults = await processDirectory(file, options);
+      const subResults = await processDirectory(file);
       results.push(...subResults);
-    } else if (isMarkdown(file) || isHtml(file)) {
-      const result = await processFile(file, options);
+    } else if (isMarkdown(file)) {
+      sharedData.allMarkdownFiles.add(file);
+      const result = await processFile(file);
       if (result) {
         results.push(result);
       }
+    }
+
+    else if (isHTML(file)) {
+      sharedData.allHTMLFiles.add(file);
+      const result = await processFile(file);
+      if (result) {
+        results.push(result);
+      }
+    }
+
+    else if (isImage(file)) {
+      sharedData.allImageFiles.add(file);
+    }
+    else {
+      sharedData.allOtherFiles.add(file);
     }
   }
   return results;
 };
 
-// Gets page with most links. Supposed to be used on the allResults object that is an array of objects about each page.
-// Will use to get the summary.
-function getPageWithMostLinks(pages) {
-  if (options.log.includes("functions")) {
-    console.log("Function: getPageWithMostLinks");
-  }
-  return pages.reduce(
-    (maxLinksPage, currentPage) => {
-      if (
-        currentPage.relativeLinks.length > maxLinksPage.relativeLinks.length
-      ) {
-        return currentPage;
-      } else {
-        return maxLinksPage;
-      }
-    },
-    { relativeLinks: [] }
-  ).page_file;
-}
-
-// Get any orphans (no links from summary and no links at all)
-//
-function checkSummaryOrphans(results) {
-  const resultObj = {};
-  const allInternalAbsLinks = [];
-
-  //Create result object that has page as property
-  // And value is an array of links in/from that page converted to absolute.
-  results.forEach((obj) => {
-    const filePath = obj.page_file;
-    const relativeLinks = obj.relativeLinks;
-    const absLinks = [];
-
-    relativeLinks.forEach((linkObj) => {
-      const linkUrl = linkObj.linkUrl;
-      const absLink = path.resolve(path.dirname(filePath), linkUrl);
-      absLinks.push(absLink);
-      allInternalAbsLinks.push(absLink);
-    });
-
-    resultObj[filePath] = absLinks;
-  });
-
-  // Invert resultObj to get all objects to link to page.
-  // Add the links to to the big results object we process later.
-  const pagesObj = {};
-  for (const [page, links] of Object.entries(resultObj)) {
-    for (const link of links) {
-      if (!pagesObj[link]) {
-        pagesObj[link] = [];
-      }
-      pagesObj[link].push(page);
-    }
-  }
-  results.forEach((obj) => {
-    obj["linkedFrom"] = pagesObj[obj.page_file];
-  });
-
-  // Check that every filepath has at least one object in some absLink that matches it
-  let allFilesReferenced = true;
-  let allFilesSummaryReferenced = true;
-  const allFilesNoReference = [];
-  const allFilesNoSummaryReference = [];
-  results.forEach((obj) => {
-    const filePath = obj.page_file;
-    if (!allInternalAbsLinks.some((absLink) => absLink === filePath)) {
-      if (obj.redirectTo) {
-        //do nothing
-      } else if (obj.page_file === options.toc) {
-        //do nothing
-      } else {
-        //if it a redirect file then it shouldn't be linked.
-        allFilesNoReference.push(filePath);
-        //console.log(`File "${filePath}" not referenced by any absolute link`);
-        const error = {
-          type: "PageNotLinkedInternally",
-          page: `${obj.page_file}`,
-        };
-        results.allErrors.push(error);
-        allFilesReferenced = false;
-      }
-    }
-
-    const summaryFileLinks = resultObj[options.toc];
-
-    if (!summaryFileLinks.some((absLink) => absLink === filePath)) {
-      if (obj.redirectTo) {
-        // do nothing
-      } else if (obj.page_file === options.toc) {
-        //do nothing
-      } else {
-        //if it a redirect file then it shouldn't be linked.
-        allFilesNoSummaryReference.push(filePath);
-        //console.log(`File "${filePath}" not referenced in summary.md`);
-        const error = {
-          type: "PageNotLinkedFromSummary",
-          page: `${obj.page_file}`,
-        };
-        if (!results.allErrors) {
-          results["allErrors"] = [];
-        }
-        results.allErrors.push(error);
-        allFilesSummaryReferenced = false;
-      }
-    }
-  });
-
-  if (!allFilesReferenced) {
-    const jsonAllFilesNotReferenced = JSON.stringify(
-      allFilesNoReference,
-      null,
-      2
-    );
-    logToFile("./logs/allFilesNoReference.json", jsonAllFilesNotReferenced);
-  } else {
-    //console.log("All files referenced at least once");
-  }
-
-  if (!allFilesSummaryReferenced) {
-    const jsonAllFilesNotSummaryReferenced = JSON.stringify(
-      allFilesNoSummaryReference,
-      null,
-      2
-    );
-    logToFile(
-      "./logs/allFilesNoSummaryReference.json",
-      jsonAllFilesNotSummaryReferenced
-    );
-  } else {
-    //console.log("All files referenced at least once");
-  }
-
-  if (options.log.includes("quick")) {
-    //console.log(resultObj);
-    const jsonFilesWithAbsoluteLinks = JSON.stringify(resultObj, null, 2);
-    logToFile(
-      "./logs/pagesResolvedAbsoluteLinks.json",
-      jsonFilesWithAbsoluteLinks
-    );
-  }
-}
-
 function filterErrors(errors) {
+  sharedData.options.log.includes("functions")
+    ? console.log(`Function: filterErrors()`)
+    : null;
   // This method filters all errors against settings in the command line - such as pages to output.
   let filteredErrors = errors;
   // Filter results on specified file names (if any specified)
-  //console.log(`Number pages to filter: ${options.files.length}`);
-  if (options.files.length > 0) {
+  //console.log(`Number pages to filter: ${sharedData.options.files.length}`);
+  if (sharedData.options.files.length > 0) {
     filteredErrors = errors.filter((error) => {
-      //console.log(`Error: ${error}`);
+      //console.log(`UError: ${error}`);
       //console.log(JSON.stringify(error, null, 2));
-      //console.log(`Error page: ${error.page}`);
-
-      return options.files.includes(error.page);
+      //console.log(`UError page: ${error.page}`);
+      const filterResult = sharedData.options.files.includes(error.page);
+      //console.log(`filterResult: ${filterResult}`);
+      return filterResult;
     });
   }
   // Filter on other things - such as errors.
@@ -311,47 +211,59 @@ function filterErrors(errors) {
 //main function, after options et have been set up.
 (async () => {
   // process  containing markdown, return results which includes links, headings, id anchors
-  const results = await processDirectory(markdownDirectory, options);
+  const results = await processDirectory(markdownDirectory);
 
-  const errorsFromRelativeLinks = processRelativeLinks(results, options);
+  // Process just the relative links to find errors like missing files, anchors
+  const errorsFromRelativeLinks = processRelativeLinks(results);
   if (!results.allErrors) {
     results.allErrors = [];
   }
   results["allErrors"].push(...errorsFromRelativeLinks);
 
-  const errorsFromLocalImageLinks = await processLocalImageLinks(
-    results,
-    options
+  // Process just images linked in local file system - find errors like missing images.
+  const errorsFromLocalImageLinks = await checkLocalImageLinks(
+    results
   );
   //console.log(errorsFromLocalImageLinks)
   results["allErrors"].push(...errorsFromLocalImageLinks);
 
+  // Process links to current site URL - should be relative links normally.
   const errorsFromUrlsToLocalSite = await processUrlsToLocalSource(
-    results,
-    options
+    results
   );
   //console.log(errorsFromUrlsToLocalSite)
   results["allErrors"].push(...errorsFromUrlsToLocalSite);
 
-  //Can now guess the summary file if not specified
-  options.toc ? null : (options.toc = getPageWithMostLinks(results));
-  checkSummaryOrphans(results);
+  // Check for page orphans - markdown files not linked anywhere and not in summary.
+  // Guesses the table of contents file if not specified in options.toc
+  sharedData.options.toc ? null : (sharedData.options.toc = getPageWithMostLinks(results));
+  checkPageOrphans(results); // Perhaps should follow pattern of returning errors - currently updates results
+
+  const errorsGlobalImageOrphanCheck = await checkImageOrphansGlobal(
+    results
+  );
+  results["allErrors"].push(...errorsGlobalImageOrphanCheck);
+
+  // Filter the errors based on the settings in options.
+  // At time of writing just filters on specific set of pages.
   const filteredResults = filterErrors(results.allErrors);
 
-  outputErrors(filteredResults, options);
+  // Output the errors as console.logs
+  outputErrors(filteredResults);
 
   //make array and document options? ie. if includes ...
   const jsonFilteredErrors = JSON.stringify(filteredResults, null, 2);
   logToFile("./logs/filteredErrors.json", jsonFilteredErrors);
 
-  if (options.log.includes("filterederrors")) {
+  // Log filtered errors to standard out
+  if (sharedData.options.log.includes("filterederrors")) {
     console.log(jsonFilteredErrors);
   }
 
   //make array and document options? ie. if includes ...
   const jsonAllResults = JSON.stringify(results, null, 2);
   logToFile("./logs/allResults.json", jsonAllResults);
-  if (options.log.includes("allresults")) {
+  if (sharedData.options.log.includes("allresults")) {
     console.log(jsonAllResults);
   }
 
@@ -359,7 +271,7 @@ function filterErrors(errors) {
   const jsonAllErrors = JSON.stringify(results.allErrors, null, 2);
   logToFile("./logs/allErrors.json", jsonAllErrors);
 
-  if (options.log.includes("allerrors")) {
+  if (sharedData.options.log.includes("allerrors")) {
     console.log(jsonAllErrors);
   }
   //console.log(`OPTIONS.LOG ${options.log}`);

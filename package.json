@@ -1,6 +1,6 @@
 {
   "name": "markdown_link_checker_sc",
-  "version": "0.0.14",
+  "version": "0.0.116",
   "description": "Markdown Link Checker",
   "main": "index.js",
   "scripts": {
@@ -12,6 +12,10 @@
     "checker",
     "markdown"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hamishwillee/markdown_link_checker_sc.git"
+  },
   "bin": {
     "markdown_link_checker_sc": "./index.js"
   },
