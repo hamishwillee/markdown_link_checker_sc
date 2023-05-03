@@ -48,7 +48,7 @@ program
   )
   .option(
     "-l, --log <types...>",
-    "Export logs for debugging. Types: allerrors, filterederrors, allresults etc."
+    "Types of console logs to display logs for debugging. Types: functions, todo etc."
   )
   .option(
     "-f, --files <path>",
@@ -64,6 +64,11 @@ program
     "-u, --site_url [value]",
     "Site base url in form dev.example.com (used to catch absolute urls to local files)"
   )
+  .option(
+    "-o, --logtofile [value]",
+    "Output logs to file",
+    true
+  )
 
   .parse(process.argv);
 
@@ -78,27 +83,14 @@ sharedData.allHTMLFiles = new Set([]);
 sharedData.allImageFiles = new Set([]);
 sharedData.allOtherFiles = new Set([]);
 
-
 const markdownDirectory = path.join(sharedData.options.root, sharedData.options.directory);
-if (sharedData.options.log == "fast") {
-  console.log(`MARKDOWN DIR ${markdownDirectory}`);
-}
-
-async () => {
-  // Load JSON file containing file paths and reassign as array to the JSON path
-  sharedData.options.files
-    ? (sharedData.options.files = await loadJSONFileToReportOn(sharedData.options.files))
-    : (sharedData.options.files = []);
-  if (sharedData.options.log == "quick") {
-    for (const file of sharedData.options.files) {
-      console.log(file);
-    }
-  }
-};
 
 // Function for loading JSON file that contains files to report on
 async function loadJSONFileToReportOn(filePath) {
   sharedData.options.log.includes("functions")
+    ? console.log(`Function: loadJSONFileToReportOn(): filePath: ${filePath}`)
+    : null;
+    sharedData.options.log.includes("quick")
     ? console.log(`Function: loadJSONFileToReportOn(): filePath: ${filePath}`)
     : null;
   try {
@@ -106,11 +98,15 @@ async function loadJSONFileToReportOn(filePath) {
     let filesArray = JSON.parse(fileContent);
     // Array relative to root, so update to have full path
     filesArray = filesArray.map((str) => path.join(sharedData.options.root, str));
+    
+    sharedData.options.log.includes("quick")
+    ? console.log(`quick:filesArray: ${filesArray}`)
+    : null;
 
-    //console.log(filesArray);
     return filesArray;
   } catch (error) {
     console.error(`Error reading file: ${error.message}`);
+    console.log(`Error reading file: ${error.message}`);
     process.exit(1);
   }
 }
@@ -193,12 +189,12 @@ function filterErrors(errors) {
   // Filter results on specified file names (if any specified)
   //console.log(`Number pages to filter: ${sharedData.options.files.length}`);
   if (sharedData.options.files.length > 0) {
+	  //console.log(`USharedFileslength: ${sharedData.options.files.length}`);
     filteredErrors = errors.filter((error) => {
       //console.log(`UError: ${error}`);
       //console.log(JSON.stringify(error, null, 2));
-      //console.log(`UError page: ${error.page}`);
-      const filterResult = sharedData.options.files.includes(error.page);
-      //console.log(`filterResult: ${filterResult}`);
+      //console.log(`UError file: ${error.file}`);
+      const filterResult = sharedData.options.files.includes(error.file);
       return filterResult;
     });
   }
@@ -210,6 +206,9 @@ function filterErrors(errors) {
 
 //main function, after options et have been set up.
 (async () => {
+
+  sharedData.options.files ? (sharedData.options.files = await loadJSONFileToReportOn(sharedData.options.files)) : (sharedData.options.files = []);
+
   // process  containing markdown, return results which includes links, headings, id anchors
   const results = await processDirectory(markdownDirectory);
 
