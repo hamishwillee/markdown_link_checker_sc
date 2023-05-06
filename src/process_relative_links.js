@@ -7,12 +7,11 @@ import {
   UrlToLocalSiteError,
 } from "./errors.js";
 import { sharedData } from "./shared_data.js";
+import { logFunction } from "./helpers.js";
 
 // An array of errors given a results object that contains our array of objects containing relativeLinks (and other information).
 function processRelativeLinks(results) {
-  sharedData.options.log.includes("functions")
-    ? console.log("Function: processRelativeLinks")
-    : null;
+  logFunction(`Function: processRelativeLinks()`);
   const errors = [];
 
   //console.log(sharedData);

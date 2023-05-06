@@ -1,12 +1,12 @@
 import { Link } from "./links.js";
 import { sharedData } from "./shared_data.js";
+import { logFunction } from "./helpers.js";
 
 // Returns slug for a string (markdown heading) using Vuepress algorithm.
 // Algorithm from chatgpt - needs testing.
 const processMarkdown = (contents, page) => {
-  sharedData.options.log.includes("functions")
-    ? console.log(`Function: processMarkdown(): page: ${page}`)
-    : null;
+  logFunction(`Function: processMarkdown(): page: ${page}`);
+
   const headings = [];
   //const anchors = [];
   const htmlAnchors = []; //{};
@@ -103,9 +103,8 @@ const processLineMarkdownLinks = (
   unHandledLinkTypes,
   page
 ) => {
-  sharedData.options.log.includes("functions")
-    ? console.log(`Function: processLineMarkdownLinks(): page: ${page}`)
-    : null;
+  logFunction(`Function: processMarkdown(): page: ${page}`);
+
   //const regex = /(?<prefix>[!@]?)\[(?<text>[^\]]+)\]\((?<url>\S+?)(?:\s+"(?<title>[^"]+)")?\)/g;
   const regex =
     /(?<prefix>[!@]?)\[(?<text>[^\]]*)\]\((?<url>\S+?)(?:\s+"(?<title>[^"]+)")?\)/g;

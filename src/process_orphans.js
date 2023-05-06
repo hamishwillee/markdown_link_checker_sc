@@ -2,14 +2,13 @@ import { logToFile } from "./helpers.js";
 import path from "path";
 import { sharedData } from "./shared_data.js";
 import { PageNotInTOCError, PageNotLinkedInternallyError } from "./errors.js";
-
+import { logFunction } from "./helpers.js";
 
 // Gets page with most links. Supposed to be used on the allResults object that is an array of objects about each page.
 // Will use to get the summary.
 function getPageWithMostLinks(pages) {
-  if (sharedData.options.log.includes("functions")) {
-    console.log("Function: getPageWithMostLinks");
-  }
+  logFunction(`Function: getPageWithMostLinks`);
+
   return pages.reduce(
     (maxLinksPage, currentPage) => {
       if (

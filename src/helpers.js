@@ -2,13 +2,20 @@ import fs from "fs/promises";
 import path from "path";
 import { sharedData } from "./shared_data.js";
 
+// Call at start of function to ease logging to console.
+function logFunction(name, ...args) {
+  sharedData.options.log.includes("functions")
+    ? console.log(`${name}: ${args.join(", ")}`)
+    : null;
+}
+
 // Log data to specified file path, replacing file.
 async function logToFile(filePath, dataString) {
   sharedData.options.log.includes("functions")
-  ? console.log(`Function: logToFile(${filePath}, dataString))`)
-  : null;
+    ? console.log(`Function: logToFile(${filePath}, dataString))`)
+    : null;
   if (!sharedData.options.logtofile) {
-     return;
+    return;
   }
 
   try {
@@ -48,4 +55,4 @@ function isHTML(file) {
   return fileExtension === ".html" || fileExtension === ".htm" ? true : false;
 }
 
-export { logToFile, isImage, isMarkdown, isHTML };
+export { logToFile, logFunction, isImage, isMarkdown, isHTML };

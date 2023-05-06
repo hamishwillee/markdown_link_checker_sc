@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { sharedData } from "./shared_data.js";
 import { OrphanedImageError } from "./errors.js";
+import { logFunction } from "./helpers.js";
 
 function isImage(file) {
   const imageExtensions = [".jpg", ".jpeg", ".png", ".svg", ".gif", ".webm"];
@@ -14,9 +15,7 @@ var otherFileTypes = []; // Just used for logging in function below.
 
 // Gets all image files in a directory.
 async function getAllImageFilesInDirectory(dir) {
-  sharedData.options.log.includes("functions")
-    ? console.log(`Function: getAllImageFilesInDirectory(${dir})`)
-    : null;
+  logFunction(`Function: getAllImageFilesInDirectory(${dir})`)
 
   // TODO put this all in a try catch and return a better error.
   // Or perhaps put around parent.
@@ -43,9 +42,8 @@ async function getAllImageFilesInDirectory(dir) {
 
 // Checks if any images in the options.directory
 async function checkImageOrphansGlobal(results) {
-  sharedData.options.log.includes("functions")
-    ? console.log("Function: checkImageOrphansGlobal")
-    : null;
+  logFunction(`Function: checkImageOrphansGlobal()`)
+  
   const errors = [];
   let allImagesFound = [];
 
