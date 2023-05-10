@@ -1,14 +1,13 @@
 //import { /*LinkError,*/ CurrentFileMissingAnchorError, LinkedFileMissingAnchorError, LinkedInternalPageMissingError, InternalLinkToHTMLError, UrlToLocalSiteError} from "./errors.js"
 
 import { sharedData } from "./shared_data.js";
-
+import { logFunction } from "./helpers.js";
 
 //Function that generates console and/or log output from an array of error objects.
-// - `results` is an array of error objects. These will have a `type` and a `page`. They may also have other values, depending on type of error - such as linkurl
+// - `results` is an array of error objects.
+//  These will have a `type` and a `page`. They may also have other values, depending on type of error - such as linkurl
 function outputErrors(results) {
-  sharedData.options.log.includes("functions")
-    ? console.log("Function: outputErrors()")
-    : null;
+  logFunction("Function: outputErrors()");
 
   //Sort results by page and type.
   // Perhaps next step is to create only get info for particular pages.

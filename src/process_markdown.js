@@ -1,12 +1,12 @@
 import { Link } from "./links.js";
 import { sharedData } from "./shared_data.js";
+import { logFunction } from "./helpers.js";
 
 // Returns slug for a string (markdown heading) using Vuepress algorithm.
 // Algorithm from chatgpt - needs testing.
 const processMarkdown = (contents, page) => {
-  sharedData.options.log.includes("functions")
-    ? console.log(`Function: processMarkdown(): page: ${page}`)
-    : null;
+  logFunction(`Function: processMarkdown(): page: ${page}`);
+
   const headings = [];
   //const anchors = [];
   const htmlAnchors = []; //{};
@@ -103,10 +103,10 @@ const processLineMarkdownLinks = (
   unHandledLinkTypes,
   page
 ) => {
-  sharedData.options.log.includes("functions")
-    ? console.log(`Function: processLineMarkdownLinks(): page: ${page}`)
-    : null;
+  logFunction(`Function: processMarkdown(): page: ${page}`);
+
   //const regex = /(?<prefix>[!@]?)\[(?<text>[^\]]+)\]\((?<url>\S+?)(?:\s+"(?<title>[^"]+)")?\)/g;
+  // Match to Markdown link OR image
   const regex =
     /(?<prefix>[!@]?)\[(?<text>[^\]]*)\]\((?<url>\S+?)(?:\s+"(?<title>[^"]+)")?\)/g;
   const matches = line.matchAll(regex);
@@ -310,12 +310,16 @@ const processLineMarkdownLinks = (
   //Might further parse this to catch img in anchor.
 
   //Match for html img - append to the lists
-  const regexHTMLImgTotal = /<img\s+(?<attributes>.*?)\/>/gi;
+  const regexHTMLImgTotal = /<img\s+(?<attributes>.*?)>/gi;
+  //const regexHTMLImgTotal = /<img\s+(?<attributes>.*?)\/>/gi;
+
   const regex_htmlattr_src =
     /src\s*[=]\s*(?<quote>['"])(?<src>.*?)(?<!\\)\k<quote>/i;
+
+
   for (const match of line.matchAll(regexHTMLImgTotal)) {
+    //console.log(`XXXXXregexHTMLImgTotals: ${match}`)
     const attributes = match.groups.attributes;
-    //console.log(`XXXXXImageattributes_s: ${attributes}`)
     const linkText = "";
     let linkTitle = "";
     let linkUrl = "";
