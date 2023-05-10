@@ -28,15 +28,6 @@ async function checkLocalImageLinks(results) {
           if (err) {
             //console.log("Error");
             const error = new LocalImageNotFoundError({ link: link });
-            /*
-            const error = {
-              type: "LocalImageNotFound",
-              page: `${page.page_file}`,
-              linkUrl: `${link.url}`,
-              linkText: `${link.text}`,
-              linkFullPath: `${fullImagePath}`,
-            };
-            */
             errors.push(error);
             resolve(false);
           } else {
