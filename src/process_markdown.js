@@ -2,6 +2,9 @@ import { Link } from "./links.js";
 import { sharedData } from "./shared_data.js";
 import { logFunction } from "./helpers.js";
 
+
+
+
 // Returns slug for a string (markdown heading) using Vuepress algorithm.
 // Algorithm from chatgpt - needs testing.
 const processMarkdown = (contents, page) => {
@@ -15,6 +18,7 @@ const processMarkdown = (contents, page) => {
   const urlLocalLinks = [];
   const urlImageLinks = [];
   const relativeImageLinks = [];
+  //const referenceLinks = [];
   const unHandledLinkTypes = [];
   let redirectTo; //Pages that contain <Redirect to="string"/> links
 
@@ -53,6 +57,12 @@ const processMarkdown = (contents, page) => {
         unHandledLinkTypes,
         page
       );
+
+        // This gets a reference links
+      processLineReferenceLinks(line, page);
+
+
+
     }
 
     // Match html tags that have an id element
@@ -89,6 +99,41 @@ const processMarkdown = (contents, page) => {
   };
 };
 
+// Processes line, returning link reference and links that use them.
+// Update the incoming values and return
+// Note, assumption is all links are on one line, not split across lines.
+// This is generally true, but does not have to be.
+function processReferenceLinks(line, page) {
+  logFunction(`Function: processReferenceLinks(): page: ${page}`);
+
+  // Detect reference link
+  //const regex = /^\[(.+?)\]:\s+(.+?$)/;
+  // Link label format: https://github.github.com/gfm/#link-label
+  // Link reference definition: https://github.github.com/gfm/#link-reference-definition
+  //   This will only catch the "all in one line format".
+  //   Within that it catches reference, url and title.
+  //const regex = /^\s{0,3}\[(?<refName>.+?)\]:\s*?(?<refUrl>.+?$)/;
+  //const regex = /^\s{0,3}[\[(?<refName>.+?)\]:\s*?(?<refUrl>.+?)$/;
+  const regex =     /^\s{0,3}\[(?<capRefName>.+?)\]:\s*?(?<capRefUrl>.+?)(?:[\"'](?<refTitle>[^\"\']+)[\"'])?(\s*$)/;  //is goodish
+  //const regex = /^\s{0,3}\[(?<refName>.+?)\]:\s*?(?<refUrl>.+?)(?:[\"'](?<refTitle>[^\"\']+)[\"'])?(\s*(?<refTrailing>\S*))?$/
+
+  const matchstring = line.match(regex);
+  if (matchstring) {
+    const { capRefName, capRefUrl, refTitle, refTrailing } = matchstring.groups;
+    console.log(`URL CAPT: ${matchstring[0]}`);
+    console.log(`capRefName '${capRefName}'`);
+    const refName=capRefName.trim().toLowerCase().replace(/\s+/g, ' ');
+    console.log(`refName '${refName}'`);
+    console.log(`capRefUrl '${capRefUrl}'`);
+    const refUrl = capRefUrl.trim();
+    console.log(`refUrl '${refUrl}'`);
+    console.log(`refTitle '${refTitle}'`);
+    // We might split after reftitle or after refUrl to see if there is extra text. not done yet.
+
+
+  }
+}
+
 // Processes line, taking arrays of different link types.
 // Update the incoming values and return
 // Note, assumption is all links are on one line, not split across lines.
@@ -103,7 +148,7 @@ const processLineMarkdownLinks = (
   unHandledLinkTypes,
   page
 ) => {
-  logFunction(`Function: processMarkdown(): page: ${page}`);
+  logFunction(`Function: processMarkdownLinks(): page: ${page}`);
 
   //const regex = /(?<prefix>[!@]?)\[(?<text>[^\]]+)\]\((?<url>\S+?)(?:\s+"(?<title>[^"]+)")?\)/g;
   // Match to Markdown link OR image
@@ -199,7 +244,9 @@ const processLineMarkdownLinks = (
       }
       default: {
         unHandledLinkTypes.push(link);
-        sharedData.options.log.includes("todo") ? console.log(`TODO: 3Unhandled link.type: ${link.type}`) : null;
+        sharedData.options.log.includes("todo")
+          ? console.log(`TODO: 3Unhandled link.type: ${link.type}`)
+          : null;
         break;
       }
     }
@@ -224,7 +271,8 @@ const processLineMarkdownLinks = (
     let linkId = "";
     if (attributes) {
       const titlematch = attributes.match(regexHTMLTitle);
-      linkTitle = titlematch && titlematch.groups.title ? titlematch.groups.title : "";
+      linkTitle =
+        titlematch && titlematch.groups.title ? titlematch.groups.title : "";
       const hrefmatch = attributes.match(regexHTMLhref);
       linkUrl = hrefmatch && hrefmatch.groups.href ? hrefmatch.groups.href : "";
       const idMatch = attributes.match(regexHTMLid);
@@ -250,7 +298,9 @@ const processLineMarkdownLinks = (
     //const link = new Link(linkUrl, linkText, linkTitle);
     if (!linkUrl) {
       //We should only get here for empty links.
-      console.log(         `WWregexHTMLmatchAtag: page: ${page}, linkUrl: ${linkUrl}, linkText: ${linkText}, linkTitle: ${linkTitle}, linkType: ${linkType}`      );
+      console.log(
+        `WWregexHTMLmatchAtag: page: ${page}, linkUrl: ${linkUrl}, linkText: ${linkText}, linkTitle: ${linkTitle}, linkType: ${linkType}`
+      );
     }
 
     const link = new Link({
@@ -301,7 +351,9 @@ const processLineMarkdownLinks = (
 
       default: {
         unHandledLinkTypes.push(link);
-        sharedData.options.log.includes("todo") ? console.log(`TODO: 2Unhandled link.type: ${link.type}`) : null;
+        sharedData.options.log.includes("todo")
+          ? console.log(`TODO: 2Unhandled link.type: ${link.type}`)
+          : null;
         break;
       }
     }
@@ -315,7 +367,6 @@ const processLineMarkdownLinks = (
 
   const regex_htmlattr_src =
     /src\s*[=]\s*(?<quote>['"])(?<src>.*?)(?<!\\)\k<quote>/i;
-
 
   for (const match of line.matchAll(regexHTMLImgTotal)) {
     //console.log(`XXXXXregexHTMLImgTotals: ${match}`)
@@ -386,7 +437,9 @@ const processLineMarkdownLinks = (
 
       default: {
         unHandledLinkTypes.push(link);
-        sharedData.options.log.includes("todo") ? console.log(`TODO: 1Unhandled link.type: ${link.type}`) : null;
+        sharedData.options.log.includes("todo")
+          ? console.log(`TODO: 1Unhandled link.type: ${link.type}`)
+          : null;
         break;
       }
     }
