@@ -1,9 +1,7 @@
 import { Link } from "./links.js";
 import { sharedData } from "./shared_data.js";
 import { logFunction } from "./helpers.js";
-
-
-
+import { processReferenceLinks } from "./process_markdown_reflinks.js";
 
 // Returns slug for a string (markdown heading) using Vuepress algorithm.
 // Algorithm from chatgpt - needs testing.
@@ -20,6 +18,7 @@ const processMarkdown = (contents, page) => {
   const relativeImageLinks = [];
   //const referenceLinks = [];
   const unHandledLinkTypes = [];
+  const errors = [];
   let redirectTo; //Pages that contain <Redirect to="string"/> links
 
   //console.log("SHARED_DATA");
@@ -58,12 +57,19 @@ const processMarkdown = (contents, page) => {
         page
       );
 
-        // This gets a reference links
-      processLineReferenceLinks(line, page);
-
-
-
+      // This gets a reference links
     }
+
+
+    const referenceLinkInfo = processReferenceLinks(contents, page);
+    urlLinks.push(...referenceLinkInfo.urlLinks);
+    urlLocalLinks.push(...referenceLinkInfo.urlLocalLinks);
+    urlImageLinks.push(...referenceLinkInfo.urlImageLinks);
+    relativeLinks.push(...referenceLinkInfo.relativeLinks);
+    relativeImageLinks.push(...referenceLinkInfo.relativeImageLinks);
+    errors.push(...referenceLinkInfo.errors);
+    
+    //errors: errors, //TODO need to also pass referenceLinkInfo.errors
 
     // Match html tags that have an id element
     // (another way an anchor can be created)
@@ -96,43 +102,11 @@ const processMarkdown = (contents, page) => {
     relativeImageLinks,
     unHandledLinkTypes,
     redirectTo,
+    errors,
   };
 };
 
-// Processes line, returning link reference and links that use them.
-// Update the incoming values and return
-// Note, assumption is all links are on one line, not split across lines.
-// This is generally true, but does not have to be.
-function processReferenceLinks(line, page) {
-  logFunction(`Function: processReferenceLinks(): page: ${page}`);
 
-  // Detect reference link
-  //const regex = /^\[(.+?)\]:\s+(.+?$)/;
-  // Link label format: https://github.github.com/gfm/#link-label
-  // Link reference definition: https://github.github.com/gfm/#link-reference-definition
-  //   This will only catch the "all in one line format".
-  //   Within that it catches reference, url and title.
-  //const regex = /^\s{0,3}\[(?<refName>.+?)\]:\s*?(?<refUrl>.+?$)/;
-  //const regex = /^\s{0,3}[\[(?<refName>.+?)\]:\s*?(?<refUrl>.+?)$/;
-  const regex =     /^\s{0,3}\[(?<capRefName>.+?)\]:\s*?(?<capRefUrl>.+?)(?:[\"'](?<refTitle>[^\"\']+)[\"'])?(\s*$)/;  //is goodish
-  //const regex = /^\s{0,3}\[(?<refName>.+?)\]:\s*?(?<refUrl>.+?)(?:[\"'](?<refTitle>[^\"\']+)[\"'])?(\s*(?<refTrailing>\S*))?$/
-
-  const matchstring = line.match(regex);
-  if (matchstring) {
-    const { capRefName, capRefUrl, refTitle, refTrailing } = matchstring.groups;
-    console.log(`URL CAPT: ${matchstring[0]}`);
-    console.log(`capRefName '${capRefName}'`);
-    const refName=capRefName.trim().toLowerCase().replace(/\s+/g, ' ');
-    console.log(`refName '${refName}'`);
-    console.log(`capRefUrl '${capRefUrl}'`);
-    const refUrl = capRefUrl.trim();
-    console.log(`refUrl '${refUrl}'`);
-    console.log(`refTitle '${refTitle}'`);
-    // We might split after reftitle or after refUrl to see if there is extra text. not done yet.
-
-
-  }
-}
 
 // Processes line, taking arrays of different link types.
 // Update the incoming values and return

@@ -126,13 +126,30 @@ class OrphanedImageError extends LinkError {
     super({ file: file, link: link, type: "OrphanedImage" });
   }
   output() {
-    console.log(
-      `- ${this.type}: Image not linked from docs: ${this.file}`
-    );
+    console.log(`- ${this.type}: Image not linked from docs: ${this.file}`);
   }
 }
 
-
+class ReferenceForLinkNotFoundError extends LinkError {
+  constructor({ file, linkMatch, refMatch }) {
+    super({ file: file, type: "ReferenceForLinkNotFound" });
+    if (!linkMatch) {
+      throw new Error("ReferenceForLinkNotFoundError: linkMatch is required!");
+    } else {
+      this.linkMatch = linkMatch;
+    }
+    if (!refMatch) {
+      throw new Error("ReferenceForLinkNotFoundError: refMatch is required!");
+    } else {
+      this.refMatch = refMatch;
+    }
+  }
+  output() {
+    console.log(
+      `- ${this.type}: Matching reference ${this.refMatch} not found for link ${this.linkMatch}`
+    );
+  }
+}
 
 export {
   LinkError,
@@ -144,5 +161,6 @@ export {
   PageNotInTOCError,
   PageNotLinkedInternallyError,
   LocalImageNotFoundError,
-  OrphanedImageError
+  OrphanedImageError,
+  ReferenceForLinkNotFoundError,
 };

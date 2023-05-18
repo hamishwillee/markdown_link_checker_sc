@@ -122,6 +122,8 @@ const processFile = async (file) => {
   try {
     const contents = await fs.promises.readFile(file, "utf8");
     const resultsForFile = processMarkdown(contents, file);
+    //console.log(resultsForFile);
+
     resultsForFile["page_file"] = file;
 
     // Call slugify slugifyVuepress() on each of the headings
@@ -212,11 +214,25 @@ function filterErrors(errors) {
   // process  containing markdown, return results which includes links, headings, id anchors
   const results = await processDirectory(markdownDirectory);
 
-  // Process just the relative links to find errors like missing files, anchors
-  const errorsFromRelativeLinks = processRelativeLinks(results);
   if (!results.allErrors) {
     results.allErrors = [];
   }
+
+  // Add errors saved with page during page parsing.
+  // Convenient to include with page earlier, but move into main errors item in results here.
+  // (we could also just have a global errors and add to that, and share it round to wherever errors are done - might have been easier).
+  const pageErrors = results.reduce((accumulator, page) => {
+    if (page.errors) {
+      accumulator.push(...page.errors);
+    }
+    return accumulator;
+  }, []);
+  
+  results["allErrors"].push(...pageErrors);
+
+  // Process just the relative links to find errors like missing files, anchors
+  const errorsFromRelativeLinks = processRelativeLinks(results);
+
   results["allErrors"].push(...errorsFromRelativeLinks);
 
   // Process just images linked in local file system - find errors like missing images.
