@@ -64,10 +64,11 @@ program
     "-u, --site_url [value]",
     "Site base url in form dev.example.com (used to catch absolute urls to local files)"
   )
+  .option("-o, --logtofile [value]", "Output logs to file", true)
   .option(
-    "-o, --logtofile [value]",
-    "Output logs to file",
-    true
+    "-p, --interactive [value]",
+    "Interactively add errors to the ignore list at _link_checker_sc/ignore_errors.json",
+    false
   )
 
   .parse(process.argv);
@@ -83,25 +84,30 @@ sharedData.allHTMLFiles = new Set([]);
 sharedData.allImageFiles = new Set([]);
 sharedData.allOtherFiles = new Set([]);
 
-const markdownDirectory = path.join(sharedData.options.root, sharedData.options.directory);
+const markdownDirectory = path.join(
+  sharedData.options.root,
+  sharedData.options.directory
+);
 
 // Function for loading JSON file that contains files to report on
 async function loadJSONFileToReportOn(filePath) {
   sharedData.options.log.includes("functions")
     ? console.log(`Function: loadJSONFileToReportOn(): filePath: ${filePath}`)
     : null;
-    sharedData.options.log.includes("quick")
+  sharedData.options.log.includes("quick")
     ? console.log(`Function: loadJSONFileToReportOn(): filePath: ${filePath}`)
     : null;
   try {
     const fileContent = await fs.promises.readFile(filePath, "utf8");
     let filesArray = JSON.parse(fileContent);
     // Array relative to root, so update to have full path
-    filesArray = filesArray.map((str) => path.join(sharedData.options.root, str));
-    
+    filesArray = filesArray.map((str) =>
+      path.join(sharedData.options.root, str)
+    );
+
     sharedData.options.log.includes("quick")
-    ? console.log(`quick:filesArray: ${filesArray}`)
-    : null;
+      ? console.log(`quick:filesArray: ${filesArray}`)
+      : null;
 
     return filesArray;
   } catch (error) {
@@ -110,7 +116,6 @@ async function loadJSONFileToReportOn(filePath) {
     process.exit(1);
   }
 }
-
 
 const replaceDelimiter = (str, underscore) =>
   underscore ? str.replace(/\s+/g, "_") : str.replace(/\s+/g, "-");
@@ -122,6 +127,8 @@ const processFile = async (file) => {
   try {
     const contents = await fs.promises.readFile(file, "utf8");
     const resultsForFile = processMarkdown(contents, file);
+    //console.log(resultsForFile);
+
     resultsForFile["page_file"] = file;
 
     // Call slugify slugifyVuepress() on each of the headings
@@ -160,36 +167,87 @@ const processDirectory = async (dir) => {
       if (result) {
         results.push(result);
       }
-    }
-
-    else if (isHTML(file)) {
+    } else if (isHTML(file)) {
       sharedData.allHTMLFiles.add(file);
       const result = await processFile(file);
       if (result) {
         results.push(result);
       }
-    }
-
-    else if (isImage(file)) {
+    } else if (isImage(file)) {
       sharedData.allImageFiles.add(file);
-    }
-    else {
+    } else {
       sharedData.allOtherFiles.add(file);
     }
   }
   return results;
 };
 
+function filterIgnoreErrors(errors) {
+  // This method removes any errors that are in the ignore errors list
+  // This list is imported from the file _link_checker_sc/ignore_errors.json
+
+  // Currently it is the pages to output, as listed in the options.files to output.
+  sharedData.options.log.includes("functions")
+    ? console.log(`Function: filterIgnoreErrors()`)
+    : null;
+
+  try {
+    //sharedData.IgnoreErrors = require('./_link_checker_sc/ignore_errors.json');
+    const ignoreFromFile = fs.readFileSync(
+      "./_link_checker_sc/ignore_errors.json"
+    );
+    sharedData.IgnoreErrors = JSON.parse(ignoreFromFile);
+    //console.log(sharedData.IgnoreErrors);
+  } catch (error) {
+    //console.log("probs loading");
+    //console.log(error);
+    sharedData.IgnoreErrors = [];
+  }
+
+  const filteredErrors = errors.filter((error) => {
+
+    let returnValue = true; //All items are not filtered, by default.
+    sharedData.IgnoreErrors.forEach((ignorableError) => {
+      if (
+        error.type === ignorableError.type &&
+        error.fileRelativeToRoot === ignorableError.fileRelativeToRoot
+      ) {
+        // Same file and type, so probably filter out.
+        if (!(error.link && ignorableError.link)) {
+          returnValue = false; // Neither have a link, so we match on same type
+        }
+
+        if (
+          error.link &&
+          ignorableError.link &&
+          error.link.url === ignorableError.link.url
+        ) {
+          returnValue = false; // They both have a link and it is the same link
+        }
+      }
+
+      
+    });
+    //if (returnValue ==false) console.log(error);
+    return returnValue;
+  });
+
+  
+  return filteredErrors;
+}
+
 function filterErrors(errors) {
+  // This method filters all errors against settings in the command line
+  // Currently it is the pages to output, as listed in the options.files to output.
   sharedData.options.log.includes("functions")
     ? console.log(`Function: filterErrors()`)
     : null;
-  // This method filters all errors against settings in the command line - such as pages to output.
+
   let filteredErrors = errors;
   // Filter results on specified file names (if any specified)
   //console.log(`Number pages to filter: ${sharedData.options.files.length}`);
   if (sharedData.options.files.length > 0) {
-	  //console.log(`USharedFileslength: ${sharedData.options.files.length}`);
+    //console.log(`USharedFileslength: ${sharedData.options.files.length}`);
     filteredErrors = errors.filter((error) => {
       //console.log(`UError: ${error}`);
       //console.log(JSON.stringify(error, null, 2));
@@ -206,46 +264,61 @@ function filterErrors(errors) {
 
 //main function, after options et have been set up.
 (async () => {
-
-  sharedData.options.files ? (sharedData.options.files = await loadJSONFileToReportOn(sharedData.options.files)) : (sharedData.options.files = []);
+  sharedData.options.files
+    ? (sharedData.options.files = await loadJSONFileToReportOn(
+        sharedData.options.files
+      ))
+    : (sharedData.options.files = []);
 
   // process  containing markdown, return results which includes links, headings, id anchors
   const results = await processDirectory(markdownDirectory);
 
-  // Process just the relative links to find errors like missing files, anchors
-  const errorsFromRelativeLinks = processRelativeLinks(results);
   if (!results.allErrors) {
     results.allErrors = [];
   }
+
+  // Add errors saved with page during page parsing.
+  // Convenient to include with page earlier, but move into main errors item in results here.
+  // (we could also just have a global errors and add to that, and share it round to wherever errors are done - might have been easier).
+  const pageErrors = results.reduce((accumulator, page) => {
+    if (page.errors) {
+      accumulator.push(...page.errors);
+    }
+    return accumulator;
+  }, []);
+
+  results["allErrors"].push(...pageErrors);
+
+  // Process just the relative links to find errors like missing files, anchors
+  const errorsFromRelativeLinks = processRelativeLinks(results);
+
   results["allErrors"].push(...errorsFromRelativeLinks);
 
   // Process just images linked in local file system - find errors like missing images.
-  const errorsFromLocalImageLinks = await checkLocalImageLinks(
-    results
-  );
+  const errorsFromLocalImageLinks = await checkLocalImageLinks(results);
   //console.log(errorsFromLocalImageLinks)
   results["allErrors"].push(...errorsFromLocalImageLinks);
 
   // Process links to current site URL - should be relative links normally.
-  const errorsFromUrlsToLocalSite = await processUrlsToLocalSource(
-    results
-  );
+  const errorsFromUrlsToLocalSite = await processUrlsToLocalSource(results);
   //console.log(errorsFromUrlsToLocalSite)
   results["allErrors"].push(...errorsFromUrlsToLocalSite);
 
   // Check for page orphans - markdown files not linked anywhere and not in summary.
   // Guesses the table of contents file if not specified in options.toc
-  sharedData.options.toc ? null : (sharedData.options.toc = getPageWithMostLinks(results));
+  sharedData.options.toc
+    ? null
+    : (sharedData.options.toc = getPageWithMostLinks(results));
   checkPageOrphans(results); // Perhaps should follow pattern of returning errors - currently updates results
 
-  const errorsGlobalImageOrphanCheck = await checkImageOrphansGlobal(
-    results
-  );
+  const errorsGlobalImageOrphanCheck = await checkImageOrphansGlobal(results);
   results["allErrors"].push(...errorsGlobalImageOrphanCheck);
 
   // Filter the errors based on the settings in options.
   // At time of writing just filters on specific set of pages.
-  const filteredResults = filterErrors(results.allErrors);
+  let filteredResults = filterErrors(results.allErrors);
+  // Filter out the ones we have indicated we want to ignore.
+  filteredResults = filterIgnoreErrors(filteredResults);
 
   // Output the errors as console.logs
   outputErrors(filteredResults);

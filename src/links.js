@@ -8,11 +8,12 @@ class Link {
   anchor = "";
   params = "";
   type = "unHandledLinkType";
-  goat = "This is a 2goat";
+  //goat = "This is a 2goat";
   isImage = false;
   isMarkdown = false;
   isHTML = false;
   isRelative = false;
+  isReferenceLink = false;
 
   //isImage = false;
   static linkTypes;
@@ -33,7 +34,7 @@ class Link {
     ]);
   }
 
-  constructor({ page, url, type, text, title }) {
+  constructor({ page, url, type, text, title, refName, refMatch }) {
     logFunction("Link:constructor");
 
     if (page) {
@@ -42,12 +43,21 @@ class Link {
       throw new Error("Link: page argument is required.");
     }
 
+    // Create a relative file link for comparison
+    this.fileRelativeToRoot = this.page.split(sharedData.options.root)[1];
+    this.fileRelativeToRoot = (this.fileRelativeToRoot.startsWith('/') || this.fileRelativeToRoot.startsWith('\\')) ? this.fileRelativeToRoot.substring(1) : this.fileRelativeToRoot
+
     if (url) {
       this.url = url;
       this.splitURL(this.url);
     } else {
       throw new Error("Link: url argument is required.");
     }
+
+    text ? (this.text = text) : (this.text = "");
+    title ? (this.title = title) : (this.title = "");
+    refName ? (this.refName = refName) : (this.refName = "");
+    refMatch ? (this.refMatch = refMatch) : (this.refMatch = "");
 
     const linkTypeGuess = this.findType(); // Do to populate the isXxxx values
     if (type) {
@@ -62,8 +72,7 @@ class Link {
       //No type specified - use type inferred from extension etc.
       this.type = linkTypeGuess;
     }
-    text ? (this.text = text) : (this.text = "");
-    title ? (this.title = title) : (this.title = "");
+
   }
 
   // Take a URL and split to address, anchor, params
@@ -117,6 +126,8 @@ class Link {
     this.isMarkdown =
       this.address && isMarkdown(this.address) ? true : false; //only if address is true.
     this.isHTML = this.address && isHTML(this.address) ? true : false; //only if address is true.
+    this.isReferenceLink = this.refName ? true : false; //Only if we have a reference name
+
     const regexpTestProtocol = /^[a-z]+:/i;
 
     //console.log(`Linkcheck1: ${this.address} `);

@@ -10,8 +10,15 @@ class LinkError {
     if (link) {
       this.link = link;
       this.file = this.link.page;
+      this.fileRelativeToRoot = this.link.fileRelativeToRoot;
     } else {
       this.file = file; // i.e. infer file from link, but if link not specified then can take passed value
+      this.fileRelativeToRoot = this.file.split(sharedData.options.root)[1];
+      this.fileRelativeToRoot =
+        this.fileRelativeToRoot.startsWith("/") ||
+        this.fileRelativeToRoot.startsWith("\\")
+          ? this.fileRelativeToRoot.substring(1)
+          : this.fileRelativeToRoot;
     }
   }
 
@@ -126,13 +133,30 @@ class OrphanedImageError extends LinkError {
     super({ file: file, link: link, type: "OrphanedImage" });
   }
   output() {
-    console.log(
-      `- ${this.type}: Image not linked from docs: ${this.file}`
-    );
+    console.log(`- ${this.type}: Image not linked from docs: ${this.file}`);
   }
 }
 
-
+class ReferenceForLinkNotFoundError extends LinkError {
+  constructor({ file, linkMatch, refMatch }) {
+    super({ file: file, type: "ReferenceForLinkNotFound" });
+    if (!linkMatch) {
+      throw new Error("ReferenceForLinkNotFoundError: linkMatch is required!");
+    } else {
+      this.linkMatch = linkMatch;
+    }
+    if (!refMatch) {
+      throw new Error("ReferenceForLinkNotFoundError: refMatch is required!");
+    } else {
+      this.refMatch = refMatch;
+    }
+  }
+  output() {
+    console.log(
+      `- ${this.type}: Matching reference ${this.refMatch} not found for link ${this.linkMatch}`
+    );
+  }
+}
 
 export {
   LinkError,
@@ -144,5 +168,6 @@ export {
   PageNotInTOCError,
   PageNotLinkedInternallyError,
   LocalImageNotFoundError,
-  OrphanedImageError
+  OrphanedImageError,
+  ReferenceForLinkNotFoundError,
 };
