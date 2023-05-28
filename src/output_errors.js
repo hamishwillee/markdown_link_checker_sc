@@ -33,6 +33,7 @@ function outputErrors(results) {
     }
   }
 
+  //let updateErrors = false;
   //console.log(sortedByPageErrors);
   for (const page in sortedByPageErrors) {
     let pageFromRoot;
@@ -49,7 +50,7 @@ function outputErrors(results) {
 
         // Add items to the errors to be ignored, if enabled.
         if (sharedData.options.interactive) {
-          const hideError = prompt("Stop reporting on this error? (Y/N)", "N");
+          const hideError = prompt("Stop reporting on this error? (Y/N) ", "N");
           console.log(`HideError: ${hideError}`);
           if (!sharedData.IgnoreErrors) {
             sharedData.IgnoreErrors = [];
@@ -59,8 +60,19 @@ function outputErrors(results) {
             exit();
           }
           if (hideError === "Y" || hideError === "y") {
-            error.hideReason = prompt("Why? (enter for now reason)", "");
-            sharedData.IgnoreErrors.push(error);
+            const reduceLink = {
+              url: error.link.url,
+              text: error.link.text,
+            };
+            const reduceError = {
+              type: error.type,
+              fileRelativeToRoot: error.fileRelativeToRoot,
+              link: reduceLink,
+            };
+            reduceError.hideReason = prompt("Why? (enter for now reason) ", "");
+
+            sharedData.IgnoreErrors.push(reduceError);
+            //updateErrors = true;
           }
         }
       }
@@ -76,8 +88,11 @@ function outputErrors(results) {
   }
 
   // Create create file to store the json for the errors into
+  // But only if the values have changed.
+  //if (updateErrors) {
   const filePath = path.join(dirPath, "ignore_errors.json");
   fs.writeFileSync(filePath, JSON.stringify(sharedData.IgnoreErrors, null, 2));
+  //  }
 }
 
 export { outputErrors };
