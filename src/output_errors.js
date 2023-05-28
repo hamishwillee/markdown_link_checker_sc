@@ -78,21 +78,22 @@ function outputErrors(results) {
       }
     }
   }
-  //console.log(sharedData.IgnoreErrors); //debug
-  // Save the errors to ignore.
 
   // Create the `_link_checker_sc` folder if it doesn't exist.
   const dirPath = path.join(process.cwd(), "_link_checker_sc");
-  if (!fs.existsSync(dirPath)) {
+  if (!fs.existsSync(dirPath) && sharedData.options.interactive) {
     fs.mkdirSync(dirPath);
   }
 
   // Create create file to store the json for the errors into
-  // But only if the values have changed.
-  //if (updateErrors) {
-  const filePath = path.join(dirPath, "ignore_errors.json");
-  fs.writeFileSync(filePath, JSON.stringify(sharedData.IgnoreErrors, null, 2));
-  //  }
+  // But only if iterative update in progress
+  if (sharedData.options.interactive) {
+    const filePath = path.join(dirPath, "ignore_errors.json");
+    fs.writeFileSync(
+      filePath,
+      JSON.stringify(sharedData.IgnoreErrors, null, 2)
+    );
+  }
 }
 
 export { outputErrors };
