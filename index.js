@@ -67,7 +67,7 @@ program
   .option("-o, --logtofile [value]", "Output logs to file", true)
   .option(
     "-p, --interactive [value]",
-    "Interactively decide if particular error should be ignored",
+    "Interactively add errors to the ignore list at _link_checker_sc/ignore_errors.json",
     false
   )
 
@@ -205,11 +205,6 @@ function filterIgnoreErrors(errors) {
   }
 
   const filteredErrors = errors.filter((error) => {
-    //console.log(`UError: ${error}`);
-    //console.log(error);
-    //error.type compare
-    //error.fileRelativeToRoot compare
-    // If has link - compare error.link.url
 
     let returnValue = true; //All items are not filtered, by default.
     sharedData.IgnoreErrors.forEach((ignorableError) => {
