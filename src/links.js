@@ -8,7 +8,7 @@ class Link {
   anchor = "";
   params = "";
   type = "unHandledLinkType";
-  goat = "This is a 2goat";
+  //goat = "This is a 2goat";
   isImage = false;
   isMarkdown = false;
   isHTML = false;
@@ -43,6 +43,10 @@ class Link {
       throw new Error("Link: page argument is required.");
     }
 
+    // Create a relative file link for comparison
+    this.fileRelativeToRoot = this.page.split(sharedData.options.root)[1];
+    this.fileRelativeToRoot = (this.fileRelativeToRoot.startsWith('/') || this.fileRelativeToRoot.startsWith('\\')) ? this.fileRelativeToRoot.substring(1) : this.fileRelativeToRoot
+
     if (url) {
       this.url = url;
       this.splitURL(this.url);
@@ -53,7 +57,7 @@ class Link {
     text ? (this.text = text) : (this.text = "");
     title ? (this.title = title) : (this.title = "");
     refName ? (this.refName = refName) : (this.refName = "");
-    refMatch ? (this.refMatch = refMatch) : (this.refMatch = "");    
+    refMatch ? (this.refMatch = refMatch) : (this.refMatch = "");
 
     const linkTypeGuess = this.findType(); // Do to populate the isXxxx values
     if (type) {

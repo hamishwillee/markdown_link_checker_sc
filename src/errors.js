@@ -10,8 +10,15 @@ class LinkError {
     if (link) {
       this.link = link;
       this.file = this.link.page;
+      this.fileRelativeToRoot = this.link.fileRelativeToRoot;
     } else {
       this.file = file; // i.e. infer file from link, but if link not specified then can take passed value
+      this.fileRelativeToRoot = this.file.split(sharedData.options.root)[1];
+      this.fileRelativeToRoot =
+        this.fileRelativeToRoot.startsWith("/") ||
+        this.fileRelativeToRoot.startsWith("\\")
+          ? this.fileRelativeToRoot.substring(1)
+          : this.fileRelativeToRoot;
     }
   }
 

@@ -22,6 +22,7 @@
   "author": "Hamish Willee",
   "license": "MIT",
   "dependencies": {
-    "commander": "^10.0.0"
+    "commander": "^10.0.0",
+    "prompt-sync": "^4.2.0"
   }
 }
