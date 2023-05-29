@@ -60,15 +60,19 @@ function outputErrors(results) {
             exit();
           }
           if (hideError === "Y" || hideError === "y") {
-            const reduceLink = {
-              url: error.link.url,
-              text: error.link.text,
-            };
             const reduceError = {
               type: error.type,
               fileRelativeToRoot: error.fileRelativeToRoot,
-              link: reduceLink,
+              //link: reduceLink,
             };
+            if (error.link) {
+              const reduceLink = {
+                url: error.link.url,
+                text: error.link.text,
+              };
+              reduceError.link = reduceLink;
+            }
+
             reduceError.hideReason = prompt("Why? (enter for now reason) ", "");
 
             sharedData.IgnoreErrors.push(reduceError);
