@@ -19,6 +19,7 @@ import {
   getPageWithMostLinks,
 } from "./src/process_orphans.js";
 import { checkImageOrphansGlobal } from "./src/process_image_orphans.js";
+import { processUrls } from "./src/process_urls.js";
 
 program
   .option(
@@ -70,7 +71,11 @@ program
     "Interactively add errors to the ignore list at _link_checker_sc/ignore_errors.json",
     false
   )
-
+  .option(
+    "-e, --external [value]",
+    "Process external links",
+    false
+  )
   .parse(process.argv);
 
 // TODO PX4 special parsing - errors or pages we exclude by default.
@@ -313,6 +318,12 @@ function filterErrors(errors) {
 
   const errorsGlobalImageOrphanCheck = await checkImageOrphansGlobal(results);
   results["allErrors"].push(...errorsGlobalImageOrphanCheck);
+
+
+  if (sharedData.options.external) {
+    processUrls(results);
+  }
+  
 
   // Filter the errors based on the settings in options.
   // At time of writing just filters on specific set of pages.
