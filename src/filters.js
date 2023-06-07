@@ -33,7 +33,7 @@ function filterIgnoreErrors(errors) {
     sharedData.IgnoreErrors.forEach((ignorableError) => {
       if (
         error.type === ignorableError.type &&
-        error.fileRelativeToRoot === ignorableError.fileRelativeToRoot
+        path.normalize(error.fileRelativeToRoot) === path.normalize(ignorableError.fileRelativeToRoot)
       ) {
         // Same file and type, so probably filter out.
         if (!(error.link && ignorableError.link)) {
