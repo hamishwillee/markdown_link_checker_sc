@@ -1,6 +1,6 @@
 {
   "name": "markdown_link_checker_sc",
-  "version": "0.0.121",
+  "version": "0.0.129",
   "description": "Markdown Link Checker",
   "main": "index.js",
   "scripts": {
@@ -23,6 +23,7 @@
   "license": "MIT",
   "dependencies": {
     "commander": "^10.0.0",
+    "normalize-path": "^3.0.0",
     "prompt-sync": "^4.2.0"
   }
 }
