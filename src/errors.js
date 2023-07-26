@@ -137,6 +137,26 @@ class OrphanedImageError extends LinkError {
   }
 }
 
+class ReferenceLinkEmptyReferenceError extends LinkError {
+  // A reference like [linktext][]
+  // this isn't valid because the reference to map to is undefined
+  constructor({ file, linkMatch }) {
+    super({ file: file, type: "ReferenceLinkEmptyReference" });
+    if (!linkMatch) {
+      throw new Error(
+        "ReferenceLinkEmptyReferenceError: linkMatch is required!"
+      );
+    } else {
+      this.linkMatch = linkMatch;
+    }
+  }
+  output() {
+    console.log(
+      `- ${this.type}: Link ${this.linkMatch} has as an empty string for its reference`
+    );
+  }
+}
+
 class ReferenceForLinkNotFoundError extends LinkError {
   constructor({ file, linkMatch, refMatch }) {
     super({ file: file, type: "ReferenceForLinkNotFound" });
@@ -170,4 +190,5 @@ export {
   LocalImageNotFoundError,
   OrphanedImageError,
   ReferenceForLinkNotFoundError,
+  ReferenceLinkEmptyReferenceError,
 };

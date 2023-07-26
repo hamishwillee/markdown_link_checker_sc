@@ -1,7 +1,8 @@
 import { Link } from "./links.js";
 import { logFunction } from "./helpers.js";
 import {
-  ReferenceForLinkNotFoundError /* CurrentFileMissingAnchorError,   LinkedFileMissingAnchorError, */,
+  ReferenceForLinkNotFoundError,
+  ReferenceLinkEmptyReferenceError /* CurrentFileMissingAnchorError,   LinkedFileMissingAnchorError, */,
 } from "./errors.js";
 
 //import { sharedData } from "./shared_data.js";
@@ -143,25 +144,34 @@ function processReferenceLinks(content, page) {
           break;
       }
     } else {
-      const error = new ReferenceForLinkNotFoundError({
-        file: value.page,
-        linkMatch: value.linkMatch,
-        refMatch: value.refMatch,
-      });
-      //TODO: It is valid to have text that has referene format.
-      // Don't push error until it can be disabled by default or disabled individually.
-      //errors.push(error);
+      //console.log(`XXXXX file: ${value.page}, linkMatch: ${value.linkMatch}, refMatch: ${value.refMatch}`);
+      if (!value.refMatch) {
+        const error = new ReferenceLinkEmptyReferenceError({
+          file: value.page,
+          linkMatch: value.linkMatch,
+        });
+        errors.push(error);
+      } else {
+        const error = new ReferenceForLinkNotFoundError({
+          file: value.page,
+          linkMatch: value.linkMatch,
+          refMatch: value.refMatch,
+        });
+        //TODO: It is valid to have text that has reference format.
+        // Don't push error until ready to disable specific cases.
+        //errors.push(error);
+      }
     }
   });
 
   //console.log(refLinks);
   return {
-     errors: errors,
-     urlLinks: urlLinks,
-     urlLocalLinks: urlLocalLinks,
-     urlImageLinks: urlImageLinks,
-     relativeLinks: relativeLinks,
-     relativeImageLinks: relativeImageLinks,
+    errors: errors,
+    urlLinks: urlLinks,
+    urlLocalLinks: urlLocalLinks,
+    urlImageLinks: urlImageLinks,
+    relativeLinks: relativeLinks,
+    relativeImageLinks: relativeImageLinks,
   };
 }
 
