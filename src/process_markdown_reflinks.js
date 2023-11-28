@@ -30,7 +30,7 @@ function processReferenceLinks(content, page) {
   const relativeImageLinks = [];
 
   const regexReference =
-    /^\s{0,3}\[(?<capRefName>.+?)\]:\s*?(?<capRefUrl>.+?)(?:[\"'](?<capRefTitle>[^\"\']+)[\"'])?(\s*$)/; //is goodish
+    /^\s{0,3}\[(?<capRefName>.+?)\]:\s*?(?<capRefUrl>.+?)(?:[\"'](?<capRefTitle>[^\"\']+)[\"'])?(\s*$)/; //is goodish but matches on two []
   //const regex = /^\s{0,3}\[(?<refName>.+?)\]:\s*?(?<refUrl>.+?)(?:[\"'](?<refTitle>[^\"\']+)[\"'])?(\s*(?<refTrailing>\S*))?$/
   // TODO NEED to do something about trailing text as it breaks parser.
   //Split content into lines
@@ -47,6 +47,12 @@ function processReferenceLinks(content, page) {
       // Normalize refname (lowercase, trimmed, only onewhitespace)
       // First reference used by default.
       const refName = capRefName.trim().toLowerCase().replace(/\s+/g, " ");
+      if (refName.includes(`[`) || refName.includes(`]`)) {
+        //console.log(`Markdown Link reference appears invalid: ${refName}`);
+        // This is case where we have a line that nearly matches a markdown link reference.
+        // We'll assume its not a link at all.
+        continue;
+      }
       const refTitle = capRefTitle ? capRefTitle : "";
       const refUrl = capRefUrl.trim();
 
@@ -62,7 +68,7 @@ function processReferenceLinks(content, page) {
       };
 
       if (refName in references) {
-        console.log(`TODO: Error duplicate reference to print `);
+        console.log(`TODO: Error duplicate reference to print: ${refName}`);
       } else {
         references[refName] = refItem;
       }
