@@ -62,7 +62,7 @@ function processReferenceLinks(content, page) {
       };
 
       if (refName in references) {
-        console.log(`TODO: Error duplicate reference to print `);
+        console.log(`TODO: Error duplicate reference to print: ${refName}`);
       } else {
         references[refName] = refItem;
       }
