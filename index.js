@@ -6,7 +6,13 @@ import { sharedData } from "./src/shared_data.js";
 //const path = require("path");
 import { program } from "commander";
 //const { program } = require("commander");
-import { logFunction, logToFile, isMarkdown, isHTML, isImage } from "./src/helpers.js";
+import {
+  logFunction,
+  logToFile,
+  isMarkdown,
+  isHTML,
+  isImage,
+} from "./src/helpers.js";
 
 import { outputErrors } from "./src/output_errors.js";
 
@@ -21,7 +27,6 @@ import {
 } from "./src/process_orphans.js";
 import { checkImageOrphansGlobal } from "./src/process_image_orphans.js";
 import { filterErrors, filterIgnoreErrors } from "./src/filters.js";
-
 
 program
   .option(
@@ -73,7 +78,12 @@ program
     "Interactively add errors to the ignore list at _link_checker_sc/ignore_errors.json",
     false
   )
-
+  .option(
+    //This doesn't work. Dunno why - does for other cases!
+    "-c, --anchor_in_heading [value]",
+    "Detect anchors in heading such as: # Heading {#anchor}",
+    true
+  )
   .parse(process.argv);
 
 // TODO PX4 special parsing - errors or pages we exclude by default.
@@ -184,7 +194,6 @@ const processDirectory = async (dir) => {
   }
   return results;
 };
-
 
 //main function, after options et have been set up.
 (async () => {
