@@ -1,6 +1,7 @@
 // Returns slug for a string (markdown heading) using Vuepress algorithm.
 // Algorithm from chatgpt - needs testing.
 function slugifyVuepress(str) {
+  //console.log(`DEBUG: SLUG: str: ${str}`);
   const slug = str
     .toLowerCase()
     .replace(/\/+/g, "-") // replace / with hyphens

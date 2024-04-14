@@ -41,8 +41,29 @@ const processMarkdown = (contents, page) => {
 
       // match headings
       const matches = line.match(/^#+\s+(.+)$/);
+
       if (matches) {
-        headings.push(matches[1]);
+        let heading = matches[1];
+
+        //console.log(sharedData.options.anchor_in_heading);
+
+        if (sharedData.options.anchor_in_heading) {
+          // True by default - catch anchors in headings
+
+          // Define the regex pattern to match the heading and anchor
+          // If it exists, overwrite heading and also push the anchor
+          const pattern = /(.*?)\{#(.*?)\}\s*?/;
+          const anchormatches = heading.match(pattern);
+          if (anchormatches) {
+            //console.log(anchormatches);
+            heading = anchormatches[1].trim();
+            //console.log(heading);
+            htmlAnchors.push(anchormatches[2]);
+            //console.log(anchormatches[2]);
+          }
+        }
+
+        headings.push(heading);
       }
       // TODO - have to slugify later.
 
@@ -60,7 +81,6 @@ const processMarkdown = (contents, page) => {
       // This gets a reference links
     }
 
-
     const referenceLinkInfo = processReferenceLinks(contents, page);
     urlLinks.push(...referenceLinkInfo.urlLinks);
     urlLocalLinks.push(...referenceLinkInfo.urlLocalLinks);
@@ -68,7 +88,7 @@ const processMarkdown = (contents, page) => {
     relativeLinks.push(...referenceLinkInfo.relativeLinks);
     relativeImageLinks.push(...referenceLinkInfo.relativeImageLinks);
     errors.push(...referenceLinkInfo.errors);
-    
+
     //errors: errors, //TODO need to also pass referenceLinkInfo.errors
 
     // Match html tags that have an id element
@@ -105,8 +125,6 @@ const processMarkdown = (contents, page) => {
     errors,
   };
 };
-
-
 
 // Processes line, taking arrays of different link types.
 // Update the incoming values and return
