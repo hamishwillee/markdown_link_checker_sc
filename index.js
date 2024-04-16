@@ -131,7 +131,7 @@ async function loadJSONFileToReportOn(filePath) {
 }
 
 // Function for loading JSON file that contains files to ignore (such as _summary.md)
-// This will be in logs/ignorelist.json relative to root.
+// This will be in _link_checker_sc/ignorelist.json relative to root.
 async function loadJSONFileToIgnore(filePath) {
   sharedData.options.log.includes("functions")
     ? console.log(`Function: loadJSONFileToIgnore(): filePath: ${filePath}`)
@@ -240,7 +240,7 @@ const processDirectory = async (dir) => {
     : (sharedData.options.files = []);
 
   sharedData.options.ignoreFiles = await loadJSONFileToIgnore(
-    "logs/ignorefile.json"
+    "_link_checker_sc/ignorefile.json"
   );
 
   // process  containing markdown, return results which includes links, headings, id anchors
