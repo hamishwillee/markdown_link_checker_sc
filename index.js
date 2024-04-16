@@ -130,6 +130,39 @@ async function loadJSONFileToReportOn(filePath) {
   }
 }
 
+// Function for loading JSON file that contains files to ignore (such as _summary.md)
+// This will be in logs/ignorelist.json relative to root.
+async function loadJSONFileToIgnore(filePath) {
+  sharedData.options.log.includes("functions")
+    ? console.log(`Function: loadJSONFileToIgnore(): filePath: ${filePath}`)
+    : null;
+  sharedData.options.log.includes("quick")
+    ? console.log(`Function: loadJSONFileToIgnore(): filePath: ${filePath}`)
+    : null;
+  try {
+    const fileContent = await fs.promises.readFile(filePath, "utf8");
+    let filesArray = JSON.parse(fileContent);
+    if (filesArray.length == 0) {
+      return [];
+    } else {
+      // Array relative to root, so update to have full path
+      filesArray = filesArray.map((str) =>
+        path.join(sharedData.options.root, str)
+      );
+    }
+
+    sharedData.options.log.includes("quick")
+      ? console.log(`quick:filesArray: ${filesArray}`)
+      : null;
+
+    return filesArray;
+  } catch (error) {
+    console.error(`Error reading file: ${error.message}`);
+    console.log(`Error reading file: ${error.message}`);
+    process.exit(1);
+  }
+}
+
 const replaceDelimiter = (str, underscore) =>
   underscore ? str.replace(/\s+/g, "_") : str.replace(/\s+/g, "-");
 
@@ -174,6 +207,9 @@ const processDirectory = async (dir) => {
     if (files[i].isDirectory()) {
       const subResults = await processDirectory(file);
       results.push(...subResults);
+    } else if (sharedData.options.ignoreFiles.includes(file)) {
+      // do nothing
+      // console.log(`XxxxXignorelist: file: ${file}`);
     } else if (isMarkdown(file)) {
       sharedData.allMarkdownFiles.add(file);
       const result = await processFile(file);
@@ -202,6 +238,10 @@ const processDirectory = async (dir) => {
         sharedData.options.files
       ))
     : (sharedData.options.files = []);
+
+  sharedData.options.ignoreFiles = await loadJSONFileToIgnore(
+    "logs/ignorefile.json"
+  );
 
   // process  containing markdown, return results which includes links, headings, id anchors
   const results = await processDirectory(markdownDirectory);
