@@ -267,7 +267,7 @@ const processDirectory = async (dir) => {
     sharedData.options.doc,
     "_link_checker_sc/ignorefile.json"
   );
-  console.log(`debug: pathToJsonIgnoreFile: ${pathToJsonIgnoreFile}`);
+  //console.log(`debug: pathToJsonIgnoreFile: ${pathToJsonIgnoreFile}`);
   sharedData.options.ignoreFiles = await loadJSONFileToIgnore(
     pathToJsonIgnoreFile
   );
