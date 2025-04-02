@@ -12,21 +12,22 @@ Current version only does internal link checking
 Usage: markdown_link_checker_sc [options]
 
 Options:
-  -r, --root <path>                   Root directory of your source (i.e. root of github repo). Use -d as well to specify a folder if docs are not in the root, or to just
-                                      run on particular subfolder. Defaults to current directory. (default: "D:\\github\\hamishwillee\\markdown_link_checker_sc")
-  -d, --directory [directory]         The directory to search for markdown and html files, relative to root - such as: `en` for an English subfolder. Default empty (same
-                                      as -r directory) (default: "")
-  -i, --imagedir [directory]          The directory to search for all image files for global orphan checking, relative to root - such as: `assets` or `en`. Default empty
-                                      if not explicitly set, and global orphan checking will not be done (default: "")
+  -r, --root <path>                   Root directory of your docs source, such as <repo>/docs (the folder which contains all your docs, assets, etc). Use -d as well to restrict search to a
+                                      particular subfolder. Defaults to current directory. (default: "D:\\github\\hamishwillee\\markdown_link_checker_sc")
+  -d, --directory [directory]         A subfolder or the root to search for markdown and html files. Such as: `en` for an English subfolder. Default empty (same as -r directory) (default:
+                                      "")
+  -i, --imagedir [directory]          The directory to search for all image files for global orphan checking, relative to root - such as: `assets` or `en`. Default empty if not explicitly
+                                      set, and global orphan checking will not be done (default: "")
   -c, --headingAnchorSlugify [value]  Slugify approach for turning markdown headings into heading anchors. Currently support vuepress only and always (default: "vuepress")
   -t, --tryMarkdownforHTML [value]    Try a markdown file extension check if a link to HTML fails. (default: true)
   -l, --log <types...>                Types of console logs to display logs for debugging. Types: functions, todo etc.
-  -f, --files <path>                  JSON file with array of files to report on (default is all files). Paths are relative relative to -d by default, but -r can be used
-                                      to set a different root. (default: "")
+  -f, --files <path>                  JSON file with array of files to report on (default is all files). Paths are relative relative to -d by default, but -r can be used to set a different
+                                      root. (default: "")
   -s, --toc [value]                   full filename of TOC/Summary file in file system. If not specified, inferred from file with most links to other files
   -u, --site_url [value]              Site base url in form dev.example.com (used to catch absolute urls to local files)
   -o, --logtofile [value]             Output logs to file (default: true)
   -p, --interactive [value]           Interactively add errors to the ignore list at _link_checker_sc/ignore_errors.json (default: false)
+  -c, --anchor_in_heading [value]     Detect anchors in heading such as: # Heading {#anchor} (default: true)
   -h, --help                          display help for command
 ```
 
@@ -73,9 +74,9 @@ This does catch a LOT of cases though, and is pretty quick.
 
 ## TODO
 
-Anchors that are not url escaped can trip it up. 
+Anchors that are not URL-escaped can trip it up. 
 - You can URL escape them like this: [Airframe Reference](#underwater_robot_underwater_robot_hippocampus_uuv_%28unmanned_underwater_vehicle%29)
-- BUT the comparision of the anchor is NOT url escaped, so you would need to convert back to compare.
+- BUT the comparison of the anchor is NOT url escaped, so you would need to convert back to compare.
 - URL escaping anchors and reversing for comparison is not done.
 
 Anchors defined in id in a or span are caught. Need to check those in video, div are also caught and used in internal link checking.
