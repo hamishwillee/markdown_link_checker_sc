@@ -14,7 +14,6 @@ function filterIgnoreErrors(errors) {
     sharedData.options.root,
     "./_link_checker_sc/ignore_errors.json"
   );
-  //console.log(errorFile);
 
   try {
     //sharedData.IgnoreErrors = require('./_link_checker_sc/ignore_errors.json');

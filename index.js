@@ -31,12 +31,12 @@ import { filterErrors, filterIgnoreErrors } from "./src/filters.js";
 program
   .option(
     "-r, --root <path>",
-    "Root directory of your source (i.e. root of github repo). Use -d as well to specify a folder if docs are not in the root, or to just run on particular subfolder. Defaults to current directory.",
+    "Root directory of your docs source, such as <repo>/docs (the folder which contains all your docs, assets, etc). Use -d as well to restrict search to a particular subfolder. Defaults to current directory.",
     process.cwd()
   )
   .option(
     "-d, --directory [directory]",
-    "The directory to search for markdown and html files, relative to root - such as: `en` for an English subfolder. Default empty (same as -r directory)",
+    "A subfolder or the root to search for markdown and html files. Such as: `en` for an English subfolder. Default empty (same as -r directory)",
     ""
   )
   .option(
@@ -157,9 +157,10 @@ async function loadJSONFileToIgnore(filePath) {
 
     return filesArray;
   } catch (error) {
-    console.error(`Error reading file: ${error.message}`);
-    console.log(`Error reading file: ${error.message}`);
-    process.exit(1);
+    //console.error(`Error reading file: ${error.message}`);
+    console.log(`Error reading ignore file: ${error.message}`);
+    return [];
+    //process.exit(1);
   }
 }
 
@@ -239,8 +240,13 @@ const processDirectory = async (dir) => {
       ))
     : (sharedData.options.files = []);
 
-  sharedData.options.ignoreFiles = await loadJSONFileToIgnore(
+  const pathToJsonIgnoreFile = path.join(
+    sharedData.options.root,
     "_link_checker_sc/ignorefile.json"
+  );
+  //console.log(`debug: pathToJsonIgnoreFile: ${pathToJsonIgnoreFile}`);
+  sharedData.options.ignoreFiles = await loadJSONFileToIgnore(
+    pathToJsonIgnoreFile
   );
 
   // process  containing markdown, return results which includes links, headings, id anchors
