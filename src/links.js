@@ -42,9 +42,9 @@ class Link {
     } else {
       throw new Error("Link: page argument is required.");
     }
-
+	//console.log(`debug: page: ${page}, sharedData.options.docsroot: ${sharedData.options.docsroot}`);
     // Create a relative file link for comparison
-    this.fileRelativeToRoot = this.page.split(sharedData.options.root)[1];
+    this.fileRelativeToRoot = this.page.split(sharedData.options.docsroot)[1];
     this.fileRelativeToRoot = (this.fileRelativeToRoot.startsWith('/') || this.fileRelativeToRoot.startsWith('\\')) ? this.fileRelativeToRoot.substring(1) : this.fileRelativeToRoot
 
     if (url) {

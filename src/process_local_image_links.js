@@ -16,8 +16,8 @@ async function checkLocalImageLinks(results) {
 
     page.relativeImageLinks.forEach((link, index, array) => {
       //console.log(`XYYXLINK: ${JSON.stringify(link, null, 2)}`);
-      //console.log(`sharedData.options.root: ${sharedData.options.root}`);
-      //console.log(`sharedData.options.directory: ${sharedData.options.directory}`);
+      //console.log(`sharedData.options.repo: ${sharedData.options.repo}`);
+      //console.log(`sharedData.options.subdir: ${sharedData.options.subdir}`);
       //console.log(`link.linkUrlt: ${link.url}`);
       //console.log(`dirname: ${path.dirname(page.page_file)}`);
 
