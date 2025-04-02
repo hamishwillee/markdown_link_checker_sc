@@ -30,18 +30,23 @@ import { filterErrors, filterIgnoreErrors } from "./src/filters.js";
 
 program
   .option(
-    "-r, --root <path>",
-    "Root directory of your docs source, such as <repo>/docs (the folder which contains all your docs, assets, etc). Use -d as well to restrict search to a particular subfolder. Defaults to current directory.",
+    "-r, --repo <path>",
+    "Repo root directory. Defaults to current directory. Everything resolved relative to this.)",
+    ""
+  )
+  .option(
+    "-d, --doc [directory]",
+    "Docs root directory, relative to -g (such as `docs`). Defaults to '' (all docs in root of repo). Use -d as well to restrict search to a particular subfolder. Defaults to current directory.",
     process.cwd()
   )
   .option(
-    "-d, --directory [directory]",
-    "A subfolder or the root to search for markdown and html files. Such as: `en` for an English subfolder. Default empty (same as -r directory)",
+    "-e, --subdir [directory]",
+    "A subfolder of the docs root (-d) to search for markdown and html files. Such as: `en` for an English subfolder. Default empty (same as -d directory)",
     ""
   )
   .option(
     "-i, --imagedir [directory]",
-    "The directory to search for all image files for global orphan checking, relative to root - such as: `assets` or `en`. Default empty if not explicitly set, and global orphan checking will not be done",
+    "The directory to search for all image files for global orphan checking, relative docs root (-d) - such as: `assets` or `en`. Default empty if not explicitly set, and global orphan checking will not be done",
     ""
   )
   .option(
@@ -60,10 +65,9 @@ program
   )
   .option(
     "-f, --files <path>",
-    "JSON file with array of files to report on (default is all files). Paths are relative relative to -d by default, but -r can be used to set a different root.",
+    "JSON file with array of files to report on (default is all files). JSON paths are usually relative to git repo root `-r`.",
     ""
   )
-
   .option(
     "-s, --toc [value]",
     "full filename of TOC/Summary file in file system. If not specified, inferred from file with most links to other files"
@@ -75,7 +79,7 @@ program
   .option("-o, --logtofile [value]", "Output logs to file", true)
   .option(
     "-p, --interactive [value]",
-    "Interactively add errors to the ignore list at _link_checker_sc/ignore_errors.json",
+    "Interactively add errors to the ignore list at <repo>/_link_checker_sc/ignore_errors.json",
     false
   )
   .option(
@@ -97,10 +101,28 @@ sharedData.allHTMLFiles = new Set([]);
 sharedData.allImageFiles = new Set([]);
 sharedData.allOtherFiles = new Set([]);
 
-const markdownDirectory = path.join(
-  sharedData.options.root,
-  sharedData.options.directory
+//console.log(`debug: sharedData.options.repo: ${sharedData.options.repo}`);
+//console.log(`debug: sharedData.options.doc: ${sharedData.options.doc}`);
+//console.log(`debug: sharedData.options.subdir: ${sharedData.options.subdir}`);
+
+sharedData.options.docsroot = path.join(
+  sharedData.options.repo,
+  sharedData.options.doc
 );
+
+// Markdown directory we are actually checking
+sharedData.options.markdownroot = path.join(
+  sharedData.options.docsroot,
+  sharedData.options.subdir
+);
+
+//console.log(`debug: sharedData.options.repo: ${sharedData.options.repo}`);
+//console.log(`debug: sharedData.options.doc: ${sharedData.options.doc}`);
+//console.log(`debug: sharedData.options.subdir: ${sharedData.options.subdir}`);
+//console.log(`debug: sharedData.options.docsroot: ${sharedData.options.docsroot}`);
+//console.log(`debug: sharedData.options.markdownroot: ${sharedData.options.markdownroot}`);
+
+//process.exit(1);
 
 // Function for loading JSON file that contains files to report on
 async function loadJSONFileToReportOn(filePath) {
@@ -115,7 +137,7 @@ async function loadJSONFileToReportOn(filePath) {
     let filesArray = JSON.parse(fileContent);
     // Array relative to root, so update to have full path
     filesArray = filesArray.map((str) =>
-      path.join(sharedData.options.root, str)
+      path.join(sharedData.options.repo, str)
     );
 
     sharedData.options.log.includes("quick")
@@ -125,7 +147,7 @@ async function loadJSONFileToReportOn(filePath) {
     return filesArray;
   } catch (error) {
     console.error(`Error reading file: ${error.message}`);
-    console.log(`Error reading file: ${error.message}`);
+    //console.log(`Error reading file: ${error.message}`);
     process.exit(1);
   }
 }
@@ -145,9 +167,9 @@ async function loadJSONFileToIgnore(filePath) {
     if (filesArray.length == 0) {
       return [];
     } else {
-      // Array relative to root, so update to have full path
+      // Array relative to repo root, so update to have full path
       filesArray = filesArray.map((str) =>
-        path.join(sharedData.options.root, str)
+        path.join(sharedData.options.docsroot, str)
       );
     }
 
@@ -210,7 +232,7 @@ const processDirectory = async (dir) => {
       results.push(...subResults);
     } else if (sharedData.options.ignoreFiles.includes(file)) {
       // do nothing
-      // console.log(`XxxxXignorelist: file: ${file}`);
+      //console.log(`XxxxXignorelist: file: ${file}`);
     } else if (isMarkdown(file)) {
       sharedData.allMarkdownFiles.add(file);
       const result = await processFile(file);
@@ -241,16 +263,17 @@ const processDirectory = async (dir) => {
     : (sharedData.options.files = []);
 
   const pathToJsonIgnoreFile = path.join(
-    sharedData.options.root,
+    sharedData.options.repo,
+    sharedData.options.doc,
     "_link_checker_sc/ignorefile.json"
   );
-  //console.log(`debug: pathToJsonIgnoreFile: ${pathToJsonIgnoreFile}`);
+  console.log(`debug: pathToJsonIgnoreFile: ${pathToJsonIgnoreFile}`);
   sharedData.options.ignoreFiles = await loadJSONFileToIgnore(
     pathToJsonIgnoreFile
   );
 
   // process  containing markdown, return results which includes links, headings, id anchors
-  const results = await processDirectory(markdownDirectory);
+  const results = await processDirectory(sharedData.options.markdownroot);
 
   if (!results.allErrors) {
     results.allErrors = [];

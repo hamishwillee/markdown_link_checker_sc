@@ -12,21 +12,20 @@ Current version only does internal link checking
 Usage: markdown_link_checker_sc [options]
 
 Options:
-  -r, --root <path>                   Root directory of your docs source, such as <repo>/docs (the folder which contains all your docs, assets, etc). Use -d as well to restrict search to a
-                                      particular subfolder. Defaults to current directory. (default: "D:\\github\\hamishwillee\\markdown_link_checker_sc")
-  -d, --directory [directory]         A subfolder or the root to search for markdown and html files. Such as: `en` for an English subfolder. Default empty (same as -r directory) (default:
-                                      "")
-  -i, --imagedir [directory]          The directory to search for all image files for global orphan checking, relative to root - such as: `assets` or `en`. Default empty if not explicitly
-                                      set, and global orphan checking will not be done (default: "")
+  -r, --repo <path>                   Repo root directory. Defaults to current directory. Everything resolved relative to this.) (default: "")
+  -d, --doc [directory]               Docs root directory, relative to -g (such as `docs`). Defaults to '' (all docs in root of repo). Use -d as well to restrict search to a particular subfolder. Defaults to current directory. (default:
+                                      "D:\\github\\hamishwillee\\markdown_link_checker_sc")
+  -e, --subdir [directory]            A subfolder of the docs root (-d) to search for markdown and html files. Such as: `en` for an English subfolder. Default empty (same as -d directory) (default: "")
+  -i, --imagedir [directory]          The directory to search for all image files for global orphan checking, relative docs root (-d) - such as: `assets` or `en`. Default empty if not explicitly set, and global orphan checking will not be done
+                                      (default: "")
   -c, --headingAnchorSlugify [value]  Slugify approach for turning markdown headings into heading anchors. Currently support vuepress only and always (default: "vuepress")
   -t, --tryMarkdownforHTML [value]    Try a markdown file extension check if a link to HTML fails. (default: true)
   -l, --log <types...>                Types of console logs to display logs for debugging. Types: functions, todo etc.
-  -f, --files <path>                  JSON file with array of files to report on (default is all files). Paths are relative relative to -d by default, but -r can be used to set a different
-                                      root. (default: "")
+  -f, --files <path>                  JSON file with array of files to report on (default is all files). JSON paths are usually relative to git repo root `-r`. (default: "")
   -s, --toc [value]                   full filename of TOC/Summary file in file system. If not specified, inferred from file with most links to other files
   -u, --site_url [value]              Site base url in form dev.example.com (used to catch absolute urls to local files)
   -o, --logtofile [value]             Output logs to file (default: true)
-  -p, --interactive [value]           Interactively add errors to the ignore list at _link_checker_sc/ignore_errors.json (default: false)
+  -p, --interactive [value]           Interactively add errors to the ignore list at <repo>/_link_checker_sc/ignore_errors.json (default: false)
   -c, --anchor_in_heading [value]     Detect anchors in heading such as: # Heading {#anchor} (default: true)
   -h, --help                          display help for command
 ```

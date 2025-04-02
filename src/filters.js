@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { sharedData } from "./shared_data.js";
 import { logFunction } from "./helpers.js";
-import normalize from 'normalize-path';
+import normalize from "normalize-path";
 
 function filterIgnoreErrors(errors) {
   // This method removes any errors that are in the ignore errors list
@@ -11,7 +11,7 @@ function filterIgnoreErrors(errors) {
   // Currently it is the pages to output, as listed in the options.files to output.
   logFunction(`Function: filterIgnoreErrors(${errors})`);
   const errorFile = path.join(
-    sharedData.options.root,
+    sharedData.options.docsroot,
     "./_link_checker_sc/ignore_errors.json"
   );
 
@@ -33,7 +33,8 @@ function filterIgnoreErrors(errors) {
     sharedData.IgnoreErrors.forEach((ignorableError) => {
       if (
         error.type === ignorableError.type &&
-        normalize(error.fileRelativeToRoot) === normalize(ignorableError.fileRelativeToRoot)
+        normalize(error.fileRelativeToRoot) ===
+          normalize(ignorableError.fileRelativeToRoot)
       ) {
         // Same file and type, so probably filter out.
         if (!(error.link && ignorableError.link)) {

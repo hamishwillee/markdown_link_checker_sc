@@ -37,10 +37,10 @@ function outputErrors(results) {
   //console.log(sortedByPageErrors);
   for (const page in sortedByPageErrors) {
     let pageFromRoot;
-    if (sharedData.options.root) {
-      pageFromRoot = page.split(sharedData.options.root)[1];
+    if (sharedData.options.docsroot) {
+      pageFromRoot = page.split(sharedData.options.docsroot)[1];
     } else {
-      pageFromRoot = page.split(sharedData.options.directory)[1];
+      pageFromRoot = page.split(sharedData.options.markdownroot)[1];
     }
     //console.log(`\nXX${page}`); //Root needs to full path - not '.' or whatever
     console.log(`\n${pageFromRoot}`); //Root needs to full path - not '.' or whatever

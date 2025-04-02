@@ -15,7 +15,7 @@ var otherFileTypes = []; // Just used for logging in function below.
 
 // Gets all image files in a directory.
 async function getAllImageFilesInDirectory(dir) {
-  logFunction(`Function: getAllImageFilesInDirectory(${dir})`)
+  logFunction(`Function: getAllImageFilesInDirectory(${dir})`);
 
   // TODO put this all in a try catch and return a better error.
   // Or perhaps put around parent.
@@ -42,14 +42,14 @@ async function getAllImageFilesInDirectory(dir) {
 
 // Checks if any images in the options.directory
 async function checkImageOrphansGlobal(results) {
-  logFunction(`Function: checkImageOrphansGlobal()`)
-  
+  logFunction(`Function: checkImageOrphansGlobal()`);
+
   const errors = [];
   let allImagesFound = [];
 
   if (sharedData.options.imagedir !== "") {
     const imagePath = path.resolve(
-      sharedData.options.root,
+      sharedData.options.docsroot,
       sharedData.options.imagedir
     );
 
