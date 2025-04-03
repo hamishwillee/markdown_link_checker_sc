@@ -11,14 +11,18 @@ class LinkError {
       this.link = link;
       this.file = this.link.page;
       this.fileRelativeToRoot = this.link.fileRelativeToRoot;
+      //console.log(`debugX: fileRelativeToRoot: ${this.fileRelativeToRoot}`);
     } else {
       this.file = file; // i.e. infer file from link, but if link not specified then can take passed value
       this.fileRelativeToRoot = this.file.split(sharedData.options.docsroot)[1];
+      //console.log(        `debug: sharedData.options.docsroot: ${sharedData.options.docsroot}`      );
+      //console.log(`debug: fileRelativeToRoot: ${this.fileRelativeToRoot}`);
       this.fileRelativeToRoot =
         this.fileRelativeToRoot.startsWith("/") ||
         this.fileRelativeToRoot.startsWith("\\")
           ? this.fileRelativeToRoot.substring(1)
           : this.fileRelativeToRoot;
+      //console.log(`debug: 2fileRelativeToRoot: ${this.fileRelativeToRoot}`);
     }
   }
 
