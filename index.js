@@ -3,9 +3,7 @@
 import fs from "fs";
 import path from "path";
 import { sharedData } from "./src/shared_data.js";
-//const path = require("path");
 import { program } from "commander";
-//const { program } = require("commander");
 import {
   logFunction,
   logToFile,
@@ -101,9 +99,20 @@ sharedData.allHTMLFiles = new Set([]);
 sharedData.allImageFiles = new Set([]);
 sharedData.allOtherFiles = new Set([]);
 
-//console.log(`debug: sharedData.options.repo: ${sharedData.options.repo}`);
-//console.log(`debug: sharedData.options.doc: ${sharedData.options.doc}`);
-//console.log(`debug: sharedData.options.subdir: ${sharedData.options.subdir}`);
+function resolveRepoPath(repoOption) {
+  // This gets the path from CWD by default, or resolves path up.
+  if (!repoOption || repoOption === ".") {
+    return process.cwd(); // Current working directory (Node.js)
+  }
+
+  if (repoOption === "..") {
+    return path.resolve(process.cwd(), ".."); // One directory up
+  }
+
+  return path.resolve(repoOption); // Resolve to absolute path
+}
+
+sharedData.options.repo = resolveRepoPath(sharedData.options.repo);
 
 sharedData.options.docsroot = path.join(
   sharedData.options.repo,
@@ -179,8 +188,8 @@ async function loadJSONFileToIgnore(filePath) {
 
     return filesArray;
   } catch (error) {
-    //console.error(`Error reading file: ${error.message}`);
-    console.log(`Error reading ignore file: ${error.message}`);
+    //console.log(`Error reading ignore file: ${error.message}`);
+    //Note, ignore file is private really.
     return [];
     //process.exit(1);
   }

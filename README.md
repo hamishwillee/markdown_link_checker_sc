@@ -30,6 +30,18 @@ Options:
   -h, --help                          display help for command
 ```
 
+## Ignore file
+
+You can create a `_link_checker_sc\ignorefile.json` in the docs (path specified by `-d`) that lists any files you want to avoid parsing.
+This is a JSON array of file paths relative the the docsroot.
+
+For example, to not parse `en/_sidebar.md` your ignore file would have this pattern:
+
+```
+["en/_sidebar.md"]
+```
+
+Note that a missing ignorefile is not an error.
 
 ## What link formats can it match
 
