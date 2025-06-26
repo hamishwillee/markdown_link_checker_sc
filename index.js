@@ -19,6 +19,7 @@ import { processMarkdown } from "./src/process_markdown.js";
 import { processRelativeLinks } from "./src/process_relative_links.js";
 import { checkLocalImageLinks } from "./src/process_local_image_links.js";
 import { processUrlsToLocalSource } from "./src/process_internal_url_links.js";
+import { processExternalUrlLinks } from "./src/process_external_url_links.js";
 import {
   checkPageOrphans,
   getPageWithMostLinks,
@@ -34,7 +35,7 @@ program
   )
   .option(
     "-d, --doc [directory]",
-    "Docs root directory, relative to -g (such as `docs`). Defaults to '' (all docs in root of repo). Use -d as well to restrict search to a particular subfolder. Defaults to current directory.",
+    "Docs root directory, relative to -r (such as `docs`). Defaults to '' (all docs in root of repo). Use -d as well to restrict search to a particular subfolder. Defaults to current directory.",
     process.cwd()
   )
   .option(
@@ -281,7 +282,7 @@ const processDirectory = async (dir) => {
     pathToJsonIgnoreFile
   );
 
-  // process  containing markdown, return results which includes links, headings, id anchors
+  // process containing markdown, return results which includes links, headings, id anchors
   const results = await processDirectory(sharedData.options.markdownroot);
 
   if (!results.allErrors) {
@@ -324,6 +325,11 @@ const processDirectory = async (dir) => {
 
   const errorsGlobalImageOrphanCheck = await checkImageOrphansGlobal(results);
   results["allErrors"].push(...errorsGlobalImageOrphanCheck);
+
+  // Process links to externalURLs.
+  const errorsFromExternalUrlLinks = await processExternalUrlLinks(results);
+  //console.log(    `debug: errorsFromExternalUrlLinks: ${errorsFromExternalUrlLinks}`  );
+  //results["allErrors"].push(...errorsFromExternalUrlLinks);
 
   // Filter the errors based on the settings in options.
   // At time of writing just filters on specific set of pages.
