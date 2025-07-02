@@ -87,6 +87,7 @@ program
     "Detect anchors in heading such as: # Heading {#anchor}",
     true
   )
+  .option("-x, --externallink [value]", "Output logs to file", false)
   .parse(process.argv);
 
 // TODO PX4 special parsing - errors or pages we exclude by default.
@@ -327,9 +328,11 @@ const processDirectory = async (dir) => {
   results["allErrors"].push(...errorsGlobalImageOrphanCheck);
 
   // Process links to externalURLs.
-  const errorsFromExternalUrlLinks = await processExternalUrlLinks(results);
-  //console.log(    `debug: errorsFromExternalUrlLinks: ${errorsFromExternalUrlLinks}`  );
-  //results["allErrors"].push(...errorsFromExternalUrlLinks);
+  if (sharedData.options.externallink) {
+    const errorsFromExternalUrlLinks = await processExternalUrlLinks(results);
+    //console.log(    `debug: errorsFromExternalUrlLinks: ${errorsFromExternalUrlLinks}`  );
+    results["allErrors"].push(...errorsFromExternalUrlLinks);
+  }
 
   // Filter the errors based on the settings in options.
   // At time of writing just filters on specific set of pages.

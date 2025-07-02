@@ -42,13 +42,21 @@ async function getHeadRequestStatusCode(urlString, timeoutMs = 5000) {
   return new Promise((resolve, reject) => {
     let timeoutId; // Variable to hold the timeout ID
 
-    // Make the actual HEAD request.
     const req = client.request(options, (res) => {
       clearTimeout(timeoutId); // Clear the timeout if response is received
-      // When a response is received, we resolve the Promise with the status code.
-      // No need to consume the response body as it's a HEAD request.
-      resolve(res.statusCode);
-      // It's good practice to end the request even if no data is expected.
+
+      const { statusCode, statusMessage, headers } = res;
+      let redirectUrl;
+
+      // Check for redirect status codes (3xx)
+      if (statusCode >= 300 && statusCode < 400 && headers.location) {
+        // Resolve the redirect URL relative to the original URL if it's a relative path
+        redirectUrl = new URL(headers.location, urlString).toString();
+      }
+
+      // Resolve with an object containing statusCode, statusMessage, and optionally redirectUrl
+      resolve({ statusCode, statusMessage, redirectUrl });
+      //resolve({ statusCode: res.statusCode, statusMessage: res.statusMessage });
       res.resume(); // Consume response data to free up memory/connection
     });
 
@@ -62,7 +70,7 @@ async function getHeadRequestStatusCode(urlString, timeoutMs = 5000) {
     // Handle any errors that occur during the request (e.g., network issues, or timeout destroying the request).
     req.on("error", (e) => {
       clearTimeout(timeoutId); // Clear the timeout on error too
-      console.error(`Problem with request to ${urlString}: ${e.message}`);
+      //console.error(`Problem with request to ${urlString}: ${e.message}`);
       reject(e);
     });
 
@@ -72,26 +80,35 @@ async function getHeadRequestStatusCode(urlString, timeoutMs = 5000) {
 }
 
 /**
- * Manages concurrent HEAD requests, queuing, and caching results.
+ * Manages concurrent HEAD requests, queuing, and caching results with per-host concurrency limits.
  */
 class LinkManager {
   /**
-   * @private {Map<string, {statusCode?: number, error?: Error}>} checkedUrls - Dictionary of URLs that have been resolved, with their results.
+   * @private {Map<string, {statusCode?: number, statusMessage?: string, error?: Error, redirectUrl?: string}>} checkedUrls - Dictionary of URLs that have been resolved, with their results.
    * @private {string[]} pendingQueue - Queue of URLs waiting to be processed.
    * @private {Map<string, Promise<any>>} activeRequests - Map of URLs currently being processed and their active Promises.
+   * @private {Set<string>} _activeHostnames - Set of hostnames that currently have an active request.
    * @private {number} maxActiveRequests - Maximum number of concurrent HEAD requests allowed.
    * @private {Function} headRequestFunction - The function used to perform HEAD requests (e.g., getHeadRequestStatusCode).
    * @private {boolean} _finishedAddingUrls - Flag to indicate if no more URLs will be added.
    * @private {Promise<void>} _completionPromise - A Promise that resolves when all URLs are processed.
    * @private {Function} _resolveCompletionPromise - Function to resolve _completionPromise.
+   * @private {Map<string, number>} _retryAttempts - Map to track retry attempts for each URL (for 429 errors).
+   * @private {number} _maxRetries - Maximum number of retries for a 429 error.
+   * @private {number} _baseRetryDelayMs - Base delay for exponential backoff.
    */
   constructor(headRequestFunction, maxConcurrent = 10) {
     this.checkedUrls = new Map(); // Stores resolved results (statusCode or error)
     this.pendingQueue = []; // URLs waiting to be picked up
     this.activeRequests = new Map(); // URLs currently being processed (URL -> Promise)
-    this.maxActiveRequests = maxConcurrent; // Concurrency limit
+    this._activeHostnames = new Set(); // Tracks hostnames with active requests
+    this.maxActiveRequests = maxConcurrent; // Global concurrency limit
     this.headRequestFunction = headRequestFunction; // Function to execute HEAD request
     this._finishedAddingUrls = false; // Initially, we can still add URLs
+
+    this._retryAttempts = new Map(); // Tracks how many times a URL has been retried for 429
+    this._maxRetries = 3; // Max attempts for a 429 error
+    this._baseRetryDelayMs = 1000; // 1 second base delay for exponential backoff
 
     // Create a Promise that will resolve when the manager is done processing everything
     this._completionPromise = new Promise((resolve) => {
@@ -103,17 +120,17 @@ class LinkManager {
    * Checks the status of a given URL, managing its lifecycle through pending, active, and resolved states.
    *
    * @param {string} urlString The URL to check.
-   * @returns {{type: 'resolved', url: string, statusCode?: number, error?: Error} | {type: 'active', url: string} | {type: 'pending', url: string}}
+   * @param {boolean} [isInternalTrigger=false] - Internal flag: true if called due to a redirect or retry.
+   * @returns {{type: 'resolved', url: string, statusCode?: number, statusMessage?: string, error?: Error, redirectUrl?: string} | {type: 'active', url: string} | {type: 'pending', url: string}}
    * An object indicating the current status of the URL.
    */
-  checkURL(urlString) {
-    if (this._finishedAddingUrls) {
-      // If we've signaled completion, no new URLs should be added.
-      // This is a safety check; ideally, checkURL wouldn't be called after finish().
+  checkURL(urlString, isInternalTrigger = false) {
+    // If manager has been signaled to finish AND it's not an internal trigger (redirect or retry),
+    // then new URLs should not be added by external calls.
+    if (this._finishedAddingUrls && !isInternalTrigger) {
       console.warn(
         `Cannot add URL ${urlString}. LinkManager has been signaled to finish.`
       );
-      // Still return existing status if available
       if (this.checkedUrls.has(urlString)) {
         const result = this.checkedUrls.get(urlString);
         return { type: "resolved", url: urlString, ...result };
@@ -125,23 +142,20 @@ class LinkManager {
       };
     }
 
-    // 1. Check if the URL has already been resolved
     if (this.checkedUrls.has(urlString)) {
       const result = this.checkedUrls.get(urlString);
       return { type: "resolved", url: urlString, ...result };
     }
 
-    // 2. Check if the URL is currently being processed (in active queue)
     if (this.activeRequests.has(urlString)) {
       return { type: "active", url: urlString };
     }
 
-    // 3. Check if the URL is already in the pending queue
+    // Check if it's already in pending queue (important for retries to avoid duplicates)
     if (this.pendingQueue.includes(urlString)) {
       return { type: "pending", url: urlString };
     }
 
-    // 4. If not resolved, active, or pending, add to pending queue and try to process
     this.pendingQueue.push(urlString);
     this._processQueue(); // Attempt to start processing immediately
     return { type: "pending", url: urlString };
@@ -149,44 +163,131 @@ class LinkManager {
 
   /**
    * Internal method to manage the active and pending queues.
-   * It moves URLs from the pending queue to the active queue up to maxActiveRequests limit.
+   * It moves URLs from the pending queue to the active queue up to maxActiveRequests limit,
+   * respecting per-host concurrency.
    * Also checks if all processing is complete to resolve the completion promise.
    * @private
    */
   _processQueue() {
-    // Fill the active queue as long as there are pending URLs and capacity
-    console.log(
-      `Processing queue: ${this.getPendingCount()} pending, ${this.getActiveCount()} active`
-    );
+    // Iterate through the pending queue to find suitable URLs
+    for (let i = 0; i < this.pendingQueue.length; i++) {
+      // Stop if global concurrency limit is reached
+      if (this.activeRequests.size >= this.maxActiveRequests) {
+        break;
+      }
 
-    while (
-      this.activeRequests.size < this.maxActiveRequests &&
-      this.pendingQueue.length > 0
-    ) {
-      const urlToProcess = this.pendingQueue.shift(); // Get the next URL from pending queue
-
-      if (!urlToProcess) {
-        // Should not happen if length > 0, but good for safety
+      const urlToProcess = this.pendingQueue[i];
+      let hostname;
+      try {
+        hostname = new URL(urlToProcess).hostname;
+      } catch (e) {
+        // Handle malformed URLs that might be in the queue
+        console.error(
+          `Malformed URL in pending queue, skipping: ${urlToProcess} - ${e.message}`
+        );
+        this.checkedUrls.set(urlToProcess, {
+          error: new Error(`Malformed URL: ${e.message}`),
+        });
+        this.pendingQueue.splice(i, 1); // Remove it
+        i--; // Adjust index due to removal
         continue;
       }
 
-      // Start the HEAD request
-      const requestPromise = this.headRequestFunction(urlToProcess)
-        .then((statusCode) => {
-          // Request successful: store status code
-          this.checkedUrls.set(urlToProcess, { statusCode: statusCode });
+      // Check if this hostname already has an active request
+      if (this._activeHostnames.has(hostname)) {
+        // This host is currently busy, skip this URL for now.
+        // It remains in the pendingQueue and will be re-evaluated in future _processQueue calls.
+        continue;
+      }
+
+      // If we reach here, we found a suitable URL:
+      // 1. Remove it from the pending queue
+      this.pendingQueue.splice(i, 1);
+      i--; // Decrement index because we removed an element and the next element shifts to current position
+
+      // 2. Add its hostname to the set of active hostnames
+      this._activeHostnames.add(hostname);
+
+      // 3. Add the URL to the active requests map
+      // Start the HEAD request. The returned promise now resolves with { statusCode, statusMessage, redirectUrl }
+      const requestPromise = this.headRequestFunction(urlToProcess, 8000)
+        .then((result) => {
+          // Handle 429 Too Many Requests errors with exponential backoff
+          if (result.statusCode === 429) {
+            const currentRetries = this._retryAttempts.get(urlToProcess) || 0;
+            if (currentRetries < this._maxRetries) {
+              const delay =
+                this._baseRetryDelayMs * Math.pow(2, currentRetries); // Exponential backoff
+              this._retryAttempts.set(urlToProcess, currentRetries + 1);
+
+              /*
+              console.warn(
+                `  ${urlToProcess}: Received 429. Retrying in ${delay}ms (attempt ${
+                  currentRetries + 1
+                }/${this._maxRetries}).`
+              );
+              */
+
+              // Re-add to pending queue after delay
+              setTimeout(() => this.checkURL(urlToProcess, true), delay); // true for isInternalTrigger
+            } else {
+              // Max retries reached, store as a final error
+              const error = new Error(`Too many retries for 429 status code`);
+              this.checkedUrls.set(urlToProcess, {
+                statusCode: result.statusCode,
+                statusMessage: result.statusMessage,
+                error: error,
+              });
+            }
+          } else {
+            // Not a 429, store the result normally
+            this.checkedUrls.set(urlToProcess, {
+              statusCode: result.statusCode,
+              statusMessage: result.statusMessage,
+              redirectUrl: result.redirectUrl, // Store the redirect URL if present
+            });
+            this._retryAttempts.delete(urlToProcess); // Clean up retry attempts if successful
+
+            // If it's a redirect, add the redirected URL back to be processed
+            if (result.redirectUrl) {
+              /*
+              console.log(
+                `  ${urlToProcess} redirected to: ${result.redirectUrl}`
+              );
+              */
+
+              // IMPORTANT: Pass true for isInternalTrigger to allow adding even after finish()
+              this.checkURL(result.redirectUrl, true);
+            }
+          }
         })
         .catch((error) => {
-          // Request failed: store error
           this.checkedUrls.set(urlToProcess, { error: error });
+          this._retryAttempts.delete(urlToProcess); // Clean up retry attempts on other errors
         })
         .finally(() => {
-          // Request completed (success or failure)
-          this.activeRequests.delete(urlToProcess); // Remove from active requests
-          this._processQueue(); // Try to fill the queue again with next pending URL
+          // Request completed (success or failure/timeout/429-max-retries)
+          this.activeRequests.delete(urlToProcess); // Remove URL from active requests map
+          this._activeHostnames.delete(hostname); // Free up the hostname for new requests
+
+          // Important: Recurse to process more from the pending queue
+          // This handles cases where _processQueue exited because all pending hosts were busy
+          let totalSize =
+            this.checkedUrls.size +
+            this.pendingQueue.length +
+            this.activeRequests.size;
+          if (totalSize % 100 === 0) {
+            //
+            updateConsoleLine(
+              `checked: ${this.checkedUrls.size}, pendingQueue: ${this.pendingQueue.length}, activeRequests: ${this.activeRequests.size}`
+            );
+          }
+
+          //console.log(            `checked: ${this.checkedUrls.size}, pendingQueue: ${this.pendingQueue.length}, activeRequests: ${this.activeRequests.size}`          );
+          this._processQueue();
         });
 
-      this.activeRequests.set(urlToProcess, requestPromise); // Add to active requests map
+      this.activeRequests.set(urlToProcess, requestPromise);
     }
 
     // Check if everything is done if finish() has been called
@@ -195,7 +296,7 @@ class LinkManager {
       this.pendingQueue.length === 0 &&
       this.activeRequests.size === 0
     ) {
-      this._resolveCompletionPromise(); // Resolve the main completion promise
+      this._resolveCompletionPromise();
     }
   }
 
@@ -205,7 +306,6 @@ class LinkManager {
    */
   finish() {
     this._finishedAddingUrls = true;
-    // Immediately check if queues are already empty (e.g., if finish() is called after all checkURL calls)
     this._processQueue();
   }
 
@@ -243,6 +343,11 @@ class LinkManager {
   }
 }
 
+function updateConsoleLine(message) {
+  // Update the console line with the current status on same line
+  process.stdout.write("\r" + message + "          ");
+}
+
 const linkManager = new LinkManager(getHeadRequestStatusCode, 10);
 
 // Add all external links to the link manager.
@@ -266,15 +371,33 @@ async function checkExternalUrlLinks(results) {
 async function processExternalUrlLinks(results) {
   logFunction(`Function: processExternalUrlLinks()`);
   await checkExternalUrlLinks(results); // Wait for all links to be checked
-  logFunction(`Function FIISHED AWAIING: processExternalUrlLinks()`);
+  logFunction(`Function FINISHED AWAITING: processExternalUrlLinks()`);
+  // Now we can process the results and create errors for any links that failed.
   const errors = [];
   results.forEach((page, index, array) => {
     //console.log(`debug: PAGE: ${page}`);
     //console.log(page);
     //exit();
     page.urlLinks.forEach((link, index, array) => {
-      console.log(`debug: LINK: ${link}`);
-      console.log(link);
+      const urlResult = linkManager.checkedUrls.get(link.url);
+      //console.log(urlResult);
+      if (urlResult) {
+        if (urlResult.statusCode === 200) {
+          // Link is good. Do nothing.
+        } else {
+          // Link is not valid, so we can create an error object.
+          const error = new ExternalLinkError({
+            file: link.page,
+            link: link,
+            statusCode: urlResult.statusCode,
+            statusMessage: urlResult.statusMessage,
+            error: urlResult.error,
+          });
+          errors.push(error);
+          error.output();
+        }
+      }
+
       // Here we should have all our links checked, so we can start processing them.
     });
 
