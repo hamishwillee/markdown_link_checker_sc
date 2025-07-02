@@ -32,6 +32,25 @@ class LinkError {
   }
 }
 
+class ExternalLinkError extends LinkError {
+  constructor({ file, link, statusCode, statusMessage, error }) {
+    super({ file: file, link: link, type: "ExternalLinkError" }); // call the super class constructor and pass in the param object
+    this.statusCode = statusCode; // HTTP status code, if available
+    this.statusMessage = statusMessage; // HTTP status message, if available
+    this.error = error; // Error message, if available
+  }
+  output() {
+    let errorText = `- ${this.type}:`;
+    errorText = this.statusCode
+      ? `${errorText} ${this.statusCode} (${this.statusMessage})`
+      : errorText;
+    errorText = this.error ? `${errorText} ${this.error})` : errorText;
+    errorText = `${errorText}\n   ${this.link.url}`;
+    //this.link.text
+    console.log(errorText);
+  }
+}
+
 // Anchor link in current file does not exist
 class CurrentFileMissingAnchorError extends LinkError {
   constructor({ file, link }) {
@@ -184,6 +203,7 @@ class ReferenceForLinkNotFoundError extends LinkError {
 
 export {
   LinkError,
+  ExternalLinkError,
   CurrentFileMissingAnchorError,
   LinkedFileMissingAnchorError,
   LinkedInternalPageMissingError,
