@@ -13,21 +13,27 @@ Usage: markdown_link_checker_sc [options]
 
 Options:
   -r, --repo <path>                   Repo root directory. Defaults to current directory. Everything resolved relative to this.) (default: "")
-  -d, --doc [directory]               Docs root directory, relative to -g (such as `docs`). Defaults to '' (all docs in root of repo). Use -d as well to restrict search to a particular subfolder. Defaults to current directory. (default:
+  -d, --doc [directory]               Docs root directory, relative to -r (such as `docs`). Defaults to '' (all docs in root of repo). Use -d as well to restrict
+                                      search to a particular subfolder. Defaults to current directory. (default:
                                       "D:\\github\\hamishwillee\\markdown_link_checker_sc")
-  -e, --subdir [directory]            A subfolder of the docs root (-d) to search for markdown and html files. Such as: `en` for an English subfolder. Default empty (same as -d directory) (default: "")
-  -i, --imagedir [directory]          The directory to search for all image files for global orphan checking, relative docs root (-d) - such as: `assets` or `en`. Default empty if not explicitly set, and global orphan checking will not be done
-                                      (default: "")
-  -c, --headingAnchorSlugify [value]  Slugify approach for turning markdown headings into heading anchors. Currently support vuepress only and always (default: "vuepress")
-  -t, --tryMarkdownforHTML [value]    Try a markdown file extension check if a link to HTML fails. (default: true)
+  -e, --subdir [directory]            A subfolder of the docs root (-d) to search for markdown and html files. Such as: `en` for an English subfolder. Default
+                                      empty (same as -d directory) (default: "")
+  -i, --imagedir [directory]          The directory to search for all image files for global orphan checking, relative docs root (-d) - such as: `assets` or `en`.
+                                      Default empty if not explicitly set, and global orphan checking will not be done (default: "")
+  -c, --headingAnchorSlugify [value]  Slugify approach for turning markdown headings into heading anchors. Currently support vuepress only and always (default:
+                                      "vuepress")
+  -h, --tryMarkdownforHTML [value]    Try a markdown file extension check if a link to HTML fails. (default: true)
   -l, --log <types...>                Types of console logs to display logs for debugging. Types: functions, todo etc.
-  -f, --files <path>                  JSON file with array of files to report on (default is all files). JSON paths are usually relative to git repo root `-r`. (default: "")
-  -s, --toc [value]                   full filename of TOC/Summary file in file system. If not specified, inferred from file with most links to other files
+  -f, --files <path>                  JSON file with array of files to report on (default is all files). JSON paths are usually relative to git repo root `-r`.
+                                      (default: "")
+  -t, --toc [value]                   full filename of TOC/Summary file in file system. If not specified, inferred from file with most links to other files
   -u, --site_url [value]              Site base url in form dev.example.com (used to catch absolute urls to local files)
   -o, --logtofile [value]             Output logs to file (default: true)
   -p, --interactive [value]           Interactively add errors to the ignore list at <repo>/_link_checker_sc/ignore_errors.json (default: false)
   -c, --anchor_in_heading [value]     Detect anchors in heading such as: # Heading {#anchor} (default: true)
-  -h, --help                          display help for command
+  -x, --externallink [value]          Output logs to file (default: false)
+  -e, --errors [values]               WIP (don't use) Error type names to remove, space separated. By default ExternalLinkWarning (default: "ExternalLinkWarning")
+  --help                              display help for command
 ```
 
 ## Ignore file
@@ -81,7 +87,7 @@ This does catch a LOT of cases though, and is pretty quick.
 - Catches markdown files that are orphans - i.e. not linked by any file, or not linked by file which has the most links (normally the TOC file)
 - Catches orphan images
 - Allows you to specify that some errors are OK to ignore. These are stored in a file. See `-i` options\
-
+- Can run its own external link checker if -x is True. This is quite useful as you can control what errors get reported.
 
 ## TODO
 
@@ -111,3 +117,8 @@ The way this works:
 - Finally the output is exported in a markdown friendly output format.
 
 Lots more to do, but this already catches lots of internal errors.
+
+
+
+<!-- Tests
+node index.js -r D:\github\px4\PX4-Autopilot -d docs -e en -i assets -x True > px4_link_errors.txt -->
