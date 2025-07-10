@@ -1,5 +1,5 @@
 import path from "path";
-import { ExternalLinkError } from "./errors.js"; // TODO Add error for external links
+import { ExternalLinkError, ExternalLinkWarning } from "./errors.js"; // TODO Add error for external links
 import { logFunction } from "./helpers.js";
 import { exit } from "process";
 
@@ -15,7 +15,7 @@ import https from "https"; // Import https from the 'https' built-in module
  * @returns {Promise<number>} A Promise that resolves with the HTTP status code,
  * or rejects with an error if the request fails or times out.
  */
-async function getHeadRequestStatusCode(urlString, timeoutMs = 5000) {
+async function getHeadRequestStatusCodeDeprec(urlString, timeoutMs = 5000) {
   // We use the 'URL' class to parse the URL string and extract its components.
   // This is crucial for correctly configuring the HTTP/HTTPS request options.
   const url = new URL(urlString);
@@ -80,6 +80,120 @@ async function getHeadRequestStatusCode(urlString, timeoutMs = 5000) {
     // End the request. For HEAD requests, there's no body to send.
     req.end();
   });
+}
+
+/**
+ * Performs an HTTP request (HEAD or GET) to a given URL and returns the HTTP status code and other details.
+ * This is a generalized function to handle both HEAD and GET requests.
+ *
+ * @param {string} urlString The URL to make the request to.
+ * @param {'HEAD' | 'GET'} method The HTTP method to use ('HEAD' or 'GET').
+ * @param {number} [timeoutMs=5000] The timeout in milliseconds for the request. Defaults to 5000ms (5 seconds).
+ * @returns {Promise<{statusCode: number, statusMessage: string, redirectUrl?: string}>} A Promise that resolves with an object
+ * containing the HTTP status code, status message, and optionally a redirect URL,
+ * or rejects with an error if the request fails or times out.
+ */
+async function makeHttpRequest(urlString, method, timeoutMs = 5000) {
+  // Parse the URL string to extract its components (hostname, port, path, protocol).
+  const url = new URL(urlString);
+
+  // Determine whether to use the http or https module based on the URL's protocol.
+  const client = url.protocol === "https:" ? https : http;
+
+  // Define the options for the HTTP request.
+  const options = {
+    method: method, // Use the specified method ('HEAD' or 'GET')
+    hostname: url.hostname,
+    port: url.port || (url.protocol === "https:" ? 443 : 80), // Default ports for HTTP/HTTPS
+    path: url.pathname + url.search, // Include query parameters from the URL
+    headers: {
+      // Standard User-Agent header to mimic a browser, which can help avoid some blocks.
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+      // Accept header to indicate preferred content types.
+      Accept:
+        "text/html, application/xhtml+xml;q=0.9, application/vnd.wap.xhtml+xml;q=0.6, */*;q=0.5",
+      // Accept-Language header for language preference.
+      "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
+    },
+  };
+
+  return new Promise((resolve, reject) => {
+    let timeoutId; // Variable to store the timeout ID for clearing it later.
+
+    // Create the HTTP request.
+    const req = client.request(options, (res) => {
+      clearTimeout(timeoutId); // Clear the timeout as soon as a response is received.
+
+      const { statusCode, statusMessage, headers } = res;
+      let redirectUrl;
+
+      // Check for redirect status codes (3xx range).
+      if (statusCode >= 300 && statusCode < 400 && headers.location) {
+        // Resolve the redirect URL relative to the original URL if it's a relative path.
+        redirectUrl = new URL(headers.location, urlString).toString();
+      }
+
+      // Consume response data to free up memory/connection resources.
+      // For HEAD requests, there's no body, but for GET, we still need to consume it.
+      res.resume();
+
+      // Resolve the promise with the request details.
+      resolve({ statusCode, statusMessage, redirectUrl });
+    });
+
+    // Set a timeout for the request. If the request doesn't complete within this time, it will be aborted.
+    timeoutId = setTimeout(() => {
+      req.destroy(
+        new Error(
+          `Request timed out after ${timeoutMs}ms for ${urlString} (${method})`
+        )
+      ); // Abort the request and reject the promise.
+    }, timeoutMs);
+
+    // Handle any errors that occur during the request (e.g., network issues, DNS resolution failures, or timeout).
+    req.on("error", (e) => {
+      clearTimeout(timeoutId); // Clear the timeout if an error occurs.
+      reject(e); // Reject the promise with the error.
+    });
+
+    // End the request. For HEAD requests, there's no body to send. For GET, the body is typically empty as well.
+    req.end();
+  });
+}
+
+/**
+ * Performs a HEAD request to a given URL and, if it returns a 403 Forbidden, retries with a GET request.
+ *
+ * @param {string} urlString The URL to make the request to.
+ * @param {number} [timeoutMs=5000] The timeout in milliseconds for each request. Defaults to 5000ms.
+ * @returns {Promise<{statusCode: number, statusMessage: string, redirectUrl?: string}>} A Promise that resolves with an object
+ * containing the HTTP status code, status message, and optionally a redirect URL,
+ * or rejects with an error if both requests fail or time out.
+ */
+async function getHeadRequestStatusCode(urlString, timeoutMs = 5000) {
+  try {
+    // Attempt the HEAD request first.
+    const headResult = await makeHttpRequest(urlString, "HEAD", timeoutMs);
+
+    // If the HEAD request returns a 403 Forbidden, retry with a GET request.
+    if (headResult.statusCode === 403) {
+      /*
+      console.log(
+        `HEAD request to ${urlString} returned 403 Forbidden. Retrying with GET...`
+      );
+      */
+      // Perform the GET request.
+      const getResult = await makeHttpRequest(urlString, "GET", timeoutMs);
+      return getResult; // Return the result from the GET request.
+    } else {
+      return headResult; // Otherwise, return the result from the HEAD request.
+    }
+  } catch (error) {
+    // If the initial HEAD request fails (e.g., network error, timeout),
+    // or the subsequent GET request fails, propagate the error.
+    throw error;
+  }
 }
 
 /**
@@ -387,6 +501,19 @@ async function processExternalUrlLinks(results) {
       if (urlResult) {
         if (urlResult.statusCode === 200) {
           // Link is good. Do nothing.
+        } else if (
+          urlResult.statusCode === 302 ||
+          urlResult.statusCode === 303 ||
+          urlResult.statusCode === 307
+        ) {
+          const warning = new ExternalLinkWarning({
+            file: link.page,
+            link: link,
+            statusCode: urlResult.statusCode,
+            statusMessage: urlResult.statusMessage,
+            error: urlResult.error,
+          });
+          errors.push(warning);
         } else {
           // Link is not valid, so we can create an error object.
           const error = new ExternalLinkError({

@@ -54,7 +54,7 @@ program
     "vuepress"
   )
   .option(
-    "-t, --tryMarkdownforHTML [value]",
+    "-h, --tryMarkdownforHTML [value]",
     "Try a markdown file extension check if a link to HTML fails.",
     true
   )
@@ -68,7 +68,7 @@ program
     ""
   )
   .option(
-    "-s, --toc [value]",
+    "-t, --toc [value]",
     "full filename of TOC/Summary file in file system. If not specified, inferred from file with most links to other files"
   )
   .option(
@@ -88,6 +88,11 @@ program
     true
   )
   .option("-x, --externallink [value]", "Output logs to file", false)
+  .option(
+    "-e, --errors [values]",
+    "WIP (don't use) Error type names to remove, space separated. By default ExternalLinkWarning",
+    "ExternalLinkWarning"
+  )
   .parse(process.argv);
 
 // TODO PX4 special parsing - errors or pages we exclude by default.
@@ -132,6 +137,7 @@ sharedData.options.markdownroot = path.join(
 //console.log(`debug: sharedData.options.subdir: ${sharedData.options.subdir}`);
 //console.log(`debug: sharedData.options.docsroot: ${sharedData.options.docsroot}`);
 //console.log(`debug: sharedData.options.markdownroot: ${sharedData.options.markdownroot}`);
+//console.log(`debug: sharedData.options.errors: ${sharedData.options.errors}`);
 
 //process.exit(1);
 
@@ -344,7 +350,21 @@ const processDirectory = async (dir) => {
   outputErrors(filteredResults);
 
   //make array and document options? ie. if includes ...
-  const jsonFilteredErrors = JSON.stringify(filteredResults, null, 2);
+  function censorCircular(key, value) {
+    if (typeof value === "object" && value !== null) {
+      // Check if this object has already been seen (is part of a cycle)
+      // A more robust solution might involve a WeakSet to track seen objects
+      // For simplicity here, we're just checking for the specific problematic property
+      if (key === "issuerCertificate") {
+        console.warn(`Circular reference detected in key: ${key}`);
+        return "[Circular]"; // Or undefined to omit it entirely
+      }
+    }
+    return value;
+  }
+
+  const jsonFilteredErrors = JSON.stringify(filteredResults, censorCircular, 2);
+  //const jsonFilteredErrors = JSON.stringify(filteredResults, null, 2);
   logToFile("./logs/filteredErrors.json", jsonFilteredErrors);
 
   // Log filtered errors to standard out
@@ -353,14 +373,14 @@ const processDirectory = async (dir) => {
   }
 
   //make array and document options? ie. if includes ...
-  const jsonAllResults = JSON.stringify(results, null, 2);
+  const jsonAllResults = JSON.stringify(results, censorCircular, 2);
   logToFile("./logs/allResults.json", jsonAllResults);
   if (sharedData.options.log.includes("allresults")) {
     console.log(jsonAllResults);
   }
 
   //make array and document options? ie. if includes ...
-  const jsonAllErrors = JSON.stringify(results.allErrors, null, 2);
+  const jsonAllErrors = JSON.stringify(results.allErrors, censorCircular, 2);
   logToFile("./logs/allErrors.json", jsonAllErrors);
 
   if (sharedData.options.log.includes("allerrors")) {

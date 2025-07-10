@@ -75,7 +75,23 @@ function filterErrors(errors) {
       return filterResult;
     });
   }
+
+  // Experimental filtering on error types
+  // This version filters out values in sharedData.options.errors
+  // console.log(`DEBUG: Filtering out error types: ${sharedData.options.errors}`);
+  if (sharedData.options.errors.length > 0) {
+    filteredErrors = filteredErrors.filter((error) => {
+      //console.log(`UError: ${error}`);
+      //console.log(JSON.stringify(error, null, 2));
+      //console.log(`UError type: ${error.type}`);
+      const filterResult = !sharedData.options.errors.includes(error.type);
+      return filterResult;
+    });
+  }
+
   // Filter on other things - such as errors.
+
+  filteredErrors;
 
   //console.log(filteredErrors);
   return filteredErrors;
