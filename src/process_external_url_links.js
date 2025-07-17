@@ -8,81 +8,6 @@ import http from "http"; // Import http from the 'http' built-in module
 import https from "https"; // Import https from the 'https' built-in module
 
 /**
- * Performs a HEAD request to a given URL and returns the HTTP status code.
- *
- * @param {string} urlString The URL to make the HEAD request to.
- * @param {number} [timeoutMs=5000] The timeout in milliseconds for the request. Defaults to 5000ms (5 seconds).
- * @returns {Promise<number>} A Promise that resolves with the HTTP status code,
- * or rejects with an error if the request fails or times out.
- */
-async function getHeadRequestStatusCodeDeprec(urlString, timeoutMs = 5000) {
-  // We use the 'URL' class to parse the URL string and extract its components.
-  // This is crucial for correctly configuring the HTTP/HTTPS request options.
-  const url = new URL(urlString);
-
-  // Determine whether to use http or https module based on the protocol.
-  // This makes the function flexible for both HTTP and HTTPS URLs.
-  // We use the imported http and https modules directly.
-  const client = url.protocol === "https:" ? https : http;
-
-  // Define the options for the request.
-  // 'method: 'HEAD'' is the core of this function, ensuring only headers are fetched.
-  // 'hostname', 'port', and 'path' are extracted from the parsed URL.
-  const options = {
-    method: "HEAD",
-    hostname: url.hostname,
-    port: url.port || (url.protocol === "https:" ? 443 : 80), // Default ports if not specified
-    path: url.pathname + url.search, // Include query parameters
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-      Accept:
-        "text/html, application/xhtml+xml;q=0.9, application/vnd.wap.xhtml+xml;q=0.6, */*;q=0.5",
-      "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
-    },
-  };
-
-  return new Promise((resolve, reject) => {
-    let timeoutId; // Variable to hold the timeout ID
-
-    const req = client.request(options, (res) => {
-      clearTimeout(timeoutId); // Clear the timeout if response is received
-
-      const { statusCode, statusMessage, headers } = res;
-      let redirectUrl;
-
-      // Check for redirect status codes (3xx)
-      if (statusCode >= 300 && statusCode < 400 && headers.location) {
-        // Resolve the redirect URL relative to the original URL if it's a relative path
-        redirectUrl = new URL(headers.location, urlString).toString();
-      }
-
-      // Resolve with an object containing statusCode, statusMessage, and optionally redirectUrl
-      resolve({ statusCode, statusMessage, redirectUrl });
-      //resolve({ statusCode: res.statusCode, statusMessage: res.statusMessage });
-      res.resume(); // Consume response data to free up memory/connection
-    });
-
-    // Set a timeout for the request
-    timeoutId = setTimeout(() => {
-      req.destroy(
-        new Error(`Request timed out after ${timeoutMs}ms for ${urlString}`)
-      ); // Abort the request
-    }, timeoutMs);
-
-    // Handle any errors that occur during the request (e.g., network issues, or timeout destroying the request).
-    req.on("error", (e) => {
-      clearTimeout(timeoutId); // Clear the timeout on error too
-      //console.error(`Problem with request to ${urlString}: ${e.message}`);
-      reject(e);
-    });
-
-    // End the request. For HEAD requests, there's no body to send.
-    req.end();
-  });
-}
-
-/**
  * Performs an HTTP request (HEAD or GET) to a given URL and returns the HTTP status code and other details.
  * This is a generalized function to handle both HEAD and GET requests.
  *
@@ -176,8 +101,8 @@ async function getHeadRequestStatusCode(urlString, timeoutMs = 5000) {
     // Attempt the HEAD request first.
     const headResult = await makeHttpRequest(urlString, "HEAD", timeoutMs);
 
-    // If the HEAD request returns a 403 Forbidden, retry with a GET request.
-    if (headResult.statusCode === 403) {
+    // If the HEAD request returns a 403 Forbidden or 405 Method Not Allowed, retry with a GET request.
+    if (headResult.statusCode === 403 || headResult.statusCode === 405) {
       /*
       console.log(
         `HEAD request to ${urlString} returned 403 Forbidden. Retrying with GET...`
