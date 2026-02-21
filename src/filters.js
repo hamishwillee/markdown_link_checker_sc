@@ -1,36 +1,34 @@
 import fs from "fs";
 import path from "path";
-import { sharedData } from "./shared_data.js";
 import { logFunction } from "./helpers.js";
 import normalize from "normalize-path";
 
-function filterIgnoreErrors(errors) {
+function filterIgnoreErrors(errors, options) {
   // This method removes any errors that are in the ignore errors list
   // This list is imported from the file _link_checker_sc/ignore_errors.json
 
   // Currently it is the pages to output, as listed in the options.files to output.
-  logFunction(`Function: filterIgnoreErrors(${errors})`);
+  logFunction(options, `Function: filterIgnoreErrors(${errors})`);
   const errorFile = path.join(
-    sharedData.options.docsroot,
+    options.docsroot,
     "./_link_checker_sc/ignore_errors.json"
   );
 
+  let ignoreErrors = [];
   try {
-    //sharedData.IgnoreErrors = require('./_link_checker_sc/ignore_errors.json');
     const ignoreFromFile = fs.readFileSync(errorFile);
-    sharedData.IgnoreErrors = JSON.parse(ignoreFromFile);
-    //sharedData.options.log.includes("quick")    ? console.log(sharedData.IgnoreErrors)     : null;
+    ignoreErrors = JSON.parse(ignoreFromFile);
   } catch (error) {
-    sharedData.IgnoreErrors = [];
-    sharedData.options.log.includes("quick")
+    ignoreErrors = [];
+    options.log.includes("quick")
       ? console.log("Error loading IgnoreErrors")
       : null;
-    sharedData.options.log.includes("quick") ? console.log(error) : null;
+    options.log.includes("quick") ? console.log(error) : null;
   }
 
   const filteredErrors = errors.filter((error) => {
     let returnValue = true; //All items are not filtered, by default.
-    sharedData.IgnoreErrors.forEach((ignorableError) => {
+    ignoreErrors.forEach((ignorableError) => {
       if (
         error.type === ignorableError.type &&
         normalize(error.fileRelativeToRoot) ===
@@ -57,34 +55,34 @@ function filterIgnoreErrors(errors) {
   return filteredErrors;
 }
 
-function filterErrors(errors) {
+function filterErrors(errors, options) {
   // This method filters all errors against settings in the command line
   // Currently it is the pages to output, as listed in the options.files to output.
-  logFunction(`Function: filterErrors(${errors})`);
+  logFunction(options, `Function: filterErrors(${errors})`);
 
   let filteredErrors = errors;
   // Filter results on specified file names (if any specified)
-  //console.log(`Number pages to filter: ${sharedData.options.files.length}`);
-  if (sharedData.options.files.length > 0) {
-    //console.log(`USharedFileslength: ${sharedData.options.files.length}`);
+  //console.log(`Number pages to filter: ${options.files.length}`);
+  if (options.files.length > 0) {
+    //console.log(`USharedFileslength: ${options.files.length}`);
     filteredErrors = errors.filter((error) => {
       //console.log(`UError: ${error}`);
       //console.log(JSON.stringify(error, null, 2));
       //console.log(`UError file: ${error.file}`);
-      const filterResult = sharedData.options.files.includes(error.file);
+      const filterResult = options.files.includes(error.file);
       return filterResult;
     });
   }
 
   // Experimental filtering on error types
-  // This version filters out values in sharedData.options.errors
-  // console.log(`DEBUG: Filtering out error types: ${sharedData.options.errors}`);
-  if (sharedData.options.errors.length > 0) {
+  // This version filters out values in options.errors
+  // console.log(`DEBUG: Filtering out error types: ${options.errors}`);
+  if (options.errors.length > 0) {
     filteredErrors = filteredErrors.filter((error) => {
       //console.log(`UError: ${error}`);
       //console.log(JSON.stringify(error, null, 2));
       //console.log(`UError type: ${error.type}`);
-      const filterResult = !sharedData.options.errors.includes(error.type);
+      const filterResult = !options.errors.includes(error.type);
       return filterResult;
     });
   }

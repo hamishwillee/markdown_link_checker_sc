@@ -1,7 +1,5 @@
 import path from "path";
-import { isImage, isMarkdown, isHTML } from "./helpers.js";
-import { sharedData } from "./shared_data.js";
-import { logFunction } from "./helpers.js";
+import { isImage, isMarkdown, isHTML, logFunction } from "./helpers.js";
 
 class Link {
   address = "";
@@ -34,17 +32,18 @@ class Link {
     ]);
   }
 
-  constructor({ page, url, type, text, title, refName, refMatch }) {
-    logFunction("Link:constructor");
+  constructor({ page, url, type, text, title, refName, refMatch, options }) {
+    this._options = options;
+    logFunction(this._options, "Link:constructor");
 
     if (page) {
       this.page = page;
     } else {
       throw new Error("Link: page argument is required.");
     }
-	//console.log(`debug: page: ${page}, sharedData.options.docsroot: ${sharedData.options.docsroot}`);
+	//console.log(`debug: page: ${page}, options.docsroot: ${options?.docsroot}`);
     // Create a relative file link for comparison
-    this.fileRelativeToRoot = this.page.split(sharedData.options.docsroot)[1];
+    this.fileRelativeToRoot = this.page.split(options?.docsroot)[1];
     this.fileRelativeToRoot = (this.fileRelativeToRoot.startsWith('/') || this.fileRelativeToRoot.startsWith('\\')) ? this.fileRelativeToRoot.substring(1) : this.fileRelativeToRoot
 
     if (url) {
@@ -118,7 +117,7 @@ class Link {
   // This is only used if the type is not specified as an argument.
   // Uses file extension etc, so should be run after SplitUrl() which finds the address
   findType() {
-    logFunction("Link:findType()");
+    logFunction(this._options, "Link:findType()");
 
     let linkType = "unHandledLinkType";
 
@@ -191,7 +190,7 @@ class Link {
 
   //get absolute path to link, if this is a relative URL link.
   getAbsolutePath() {
-    logFunction("Link:getAbsolutePath", `this.page: ${this.page}`, `this.address: ${this.address}`);
+    logFunction(this._options, "Link:getAbsolutePath", `this.page: ${this.page}`, `this.address: ${this.address}`);
     if (!this.isRelative) throw new Error("Link:getAbsolutePath() called on non-relative path");
     return path.resolve(path.dirname(this.page), this.address);
   }

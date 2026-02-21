@@ -8,8 +8,8 @@ import {
 //import { sharedData } from "./shared_data.js";
 
 // Process all content in page, generating lists of links and some errors.
-function processReferenceLinks(content, page) {
-  logFunction(`Function: processReferenceLinks(): page: ${page}`);
+function processReferenceLinks(content, page, options) {
+  logFunction(options, `Function: processReferenceLinks(): page: ${page}`);
 
   // Detect reference link
   //const regex = /^\[(.+?)\]:\s+(.+?$)/;
@@ -120,6 +120,7 @@ function processReferenceLinks(content, page) {
         isReference: true,
         refName: value.refName,
         refMatch: value.linkMatch,
+        options: options,
       });
 
       // TODO Save error here if there is a mismatch in prefix - i.e. prefix ! but URL is not an image.
@@ -155,6 +156,7 @@ function processReferenceLinks(content, page) {
         const error = new ReferenceLinkEmptyReferenceError({
           file: value.page,
           linkMatch: value.linkMatch,
+          docsroot: options?.docsroot,
         });
         errors.push(error);
       } else {
@@ -162,6 +164,7 @@ function processReferenceLinks(content, page) {
           file: value.page,
           linkMatch: value.linkMatch,
           refMatch: value.refMatch,
+          docsroot: options?.docsroot,
         });
         //TODO: It is valid to have text that has reference format.
         // Don't push error until ready to disable specific cases.

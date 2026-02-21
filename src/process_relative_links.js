@@ -6,12 +6,11 @@ import {
   InternalLinkToHTMLError,
   UrlToLocalSiteError,
 } from "./errors.js";
-import { sharedData } from "./shared_data.js";
 import { logFunction } from "./helpers.js";
 
 // An array of errors given a results object that contains our array of objects containing relativeLinks (and other information).
-function processRelativeLinks(results) {
-  logFunction(`Function: processRelativeLinks()`);
+function processRelativeLinks(results, options) {
+  logFunction(options, `Function: processRelativeLinks()`);
   const errors = [];
 
   //console.log(sharedData);
@@ -57,7 +56,7 @@ function processRelativeLinks(results) {
           ) || null;
 
         if (!linkedFile) {
-          if (sharedData.options.tryMarkdownforHTML && link.isHTML) {
+          if (options.tryMarkdownforHTML && link.isHTML) {
             // The file was HTML so it might be a file extension mistake (linking to html instead of md)
             // In this case we'll try find it.
 

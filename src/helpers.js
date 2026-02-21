@@ -1,20 +1,19 @@
 import fs from "fs/promises";
 import path from "path";
-import { sharedData } from "./shared_data.js";
 
 // Call at start of function to ease logging to console.
-function logFunction(name, ...args) {
-  sharedData.options.log.includes("functions")
+function logFunction(options, name, ...args) {
+  options?.log?.includes("functions")
     ? console.log(`${name}: ${args.join(", ")}`)
     : null;
 }
 
 // Log data to specified file path, replacing file.
-async function logToFile(filePath, dataString) {
-  sharedData.options.log.includes("functions")
+async function logToFile(filePath, dataString, options) {
+  options?.log?.includes("functions")
     ? console.log(`Function: logToFile(${filePath}, dataString))`)
     : null;
-  if (!sharedData.options.logtofile) {
+  if (!options?.logtofile) {
     return;
   }
 

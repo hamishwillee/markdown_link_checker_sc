@@ -3,8 +3,8 @@ import { UrlToLocalSiteError} from "./errors.js"
 import { logFunction } from "./helpers.js";
 
 // An array of errors given a results object that contains our array of objects containing urls that link to our current site.
-function processUrlsToLocalSource(results) {
-  logFunction(`Function: processUrlsToLocalSource()`);
+function processUrlsToLocalSource(results, options) {
+  logFunction(options, `Function: processUrlsToLocalSource()`);
   const errors = [];
   results.forEach((page, index, array) => {
     //console.log(`PAGE: ${page}`);
