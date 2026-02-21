@@ -4,7 +4,7 @@
   "description": "Markdown Link Checker",
   "main": "index.js",
   "scripts": {
-    "test": "test"
+    "test": "node --test --test-reporter spec tests/unit/*.test.js tests/integration/*.test.js"
   },
   "type": "module",
   "keywords": [
