@@ -27,6 +27,7 @@ node index.js -r ~/github/PX4/PX4-Autopilot/ -d docs -e en -i assets -x true
 | `-f` | JSON file listing specific files to report on |
 | `-t` | TOC/summary file path (inferred if not set) |
 | `-u` | Site base URL to catch absolute links that should be relative |
+| `-m false` | Disable markdown fallback for `.html` links (try `.md` if `.html` not found) |
 | `-p true` | Interactive mode — build ignore list by answering prompts |
 | `-o false` | Disable log file output |
 
@@ -86,6 +87,53 @@ State is managed in `index.js` via `sharedData` from `src/shared_data.js`. All p
 | `src/filters.js` | Error filtering — `filterErrors(errors, options)`, `filterIgnoreErrors(errors, options)` |
 | `src/output_errors.js` | Console + file output — `outputErrors(results, options)` |
 
+## Testing
+
+Uses Node.js built-in `node:test` — no extra test dependencies.
+
+```bash
+# Run from WSL (UNC paths prevent npm test working from Windows PowerShell)
+node --test --test-reporter spec tests/unit/*.test.js tests/integration/*.test.js
+```
+
+| Directory | Purpose |
+|---|---|
+| `tests/fixtures/link_formats/` | Fixture markdown files covering every link format |
+| `tests/fixtures/anchor_targets/` | Fixture files covering every anchor target mechanism |
+| `tests/errortype/` | Existing per-error-type fixtures (kept from original) |
+| `tests/unit/processMarkdown.test.js` | Unit tests: link parsing and anchor detection |
+| `tests/unit/slugify.test.js` | Unit tests: VuePress slug algorithm |
+| `tests/integration/link_formats.test.js` | Pipeline test on link format fixtures |
+| `tests/integration/anchor_targets.test.js` | Pipeline test on anchor target fixtures |
+| `tests/integration/error_cases.test.js` | Error detection tests using `tests/errortype/` |
+
+Known limitations are documented as `test.skip` entries with descriptive names so they appear in the test report.
+
+### Mock options for new tests
+
+```js
+const opts = {
+  docsroot: '/abs/path/to/fixture/dir',
+  markdownroot: '/abs/path/to/fixture/dir',
+  log: [],
+  anchor_in_heading: true,
+  tryMarkdownforHTML: true,
+  site_url: null,   // set to 'mysite.com' for UrlToLocalSite tests
+  toc: null,
+  files: [],
+  errors: 'ExternalLinkWarning',
+  logtofile: false,
+  interactive: false,
+};
+```
+
+Replicate `index.js processFile()` logic in tests to build result objects:
+```js
+const result = processMarkdown(contents, filePath, opts);
+result.page_file = filePath;
+result.anchors_auto_headings = result.headings.map(slugifyVuepress);
+```
+
 ## Known Limitations
 
 - Regex-based parsing — links inside code blocks or HTML comments are captured
@@ -93,4 +141,6 @@ State is managed in `index.js` via `sharedData` from `src/shared_data.js`. All p
 - No URL-escaped anchor comparison
 - Plain reference links `[ref]` not supported — only `[text][ref]`
 - Reference definitions must be on a single line
+- `[text][missing-ref]` — `ReferenceForLinkNotFoundError` is created but not pushed to errors (commented out in `process_markdown_reflinks.js`)
+- `<a name="x">` not detected as an anchor target (only `id=` captured); also crashes the parser if it has inner text and no `href`/`id`
 - `msg_docs/` auto-generated files produce many false-positive `CurrentFileMissingAnchor` errors (constants linked as anchors)

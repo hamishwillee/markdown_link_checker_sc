@@ -226,6 +226,7 @@ class LinkManager {
     this._retryAttempts = new Map(); // Tracks how many times a URL has been retried for 429
     this._maxRetries = 3; // Max attempts for a 429 error
     this._baseRetryDelayMs = 1000; // 1 second base delay for exponential backoff
+    this._pendingRetryCount = 0; // Number of 429 retries scheduled but not yet fired
 
     // Create a Promise that will resolve when the manager is done processing everything
     this._completionPromise = new Promise((resolve) => {
@@ -345,8 +346,13 @@ class LinkManager {
               );
               */
 
-              // Re-add to pending queue after delay
-              setTimeout(() => this.checkURL(urlToProcess, true), delay); // true for isInternalTrigger
+              // Re-add to pending queue after delay.
+              // Increment before scheduling so the completion check knows a retry is in flight.
+              this._pendingRetryCount++;
+              setTimeout(() => {
+                this._pendingRetryCount--;
+                this.checkURL(urlToProcess, true);
+              }, delay);
             } else {
               // Max retries reached, store as a final error
               const error = new Error(`Too many retries for 429 status code`);
@@ -393,7 +399,7 @@ class LinkManager {
             this.checkedUrls.size +
             this.pendingQueue.length +
             this.activeRequests.size;
-          if (totalSize % 100 === 0) {
+          if (totalSize % 10 === 0) {
             //
             updateConsoleLine(
               `checked: ${this.checkedUrls.size}, pendingQueue: ${this.pendingQueue.length}, activeRequests: ${this.activeRequests.size}`
@@ -407,11 +413,13 @@ class LinkManager {
       this.activeRequests.set(urlToProcess, requestPromise);
     }
 
-    // Check if everything is done if finish() has been called
+    // Check if everything is done if finish() has been called.
+    // _pendingRetryCount guards against resolving while a 429 retry setTimeout is in flight.
     if (
       this._finishedAddingUrls &&
       this.pendingQueue.length === 0 &&
-      this.activeRequests.size === 0
+      this.activeRequests.size === 0 &&
+      this._pendingRetryCount === 0
     ) {
       this._resolveCompletionPromise();
     }
@@ -465,38 +473,33 @@ function updateConsoleLine(message) {
   process.stdout.write("\r" + message + "          ");
 }
 
-const linkManager = new LinkManager(getHeadRequestStatusCode, 10);
-
 // Add all external links to the link manager.
 // That async gets the status of any URL passed.
 // But if doesn't refetch if already fetched or fetching
-async function checkExternalUrlLinks(results) {
+async function checkExternalUrlLinks(results, manager) {
   logFunction(`Function: checkExternalUrlLinks()`);
-  results.forEach((page, index, array) => {
-    page.urlLinks.forEach((link, index, array) => {
-      // const status = linkManager.checkURL(link.url);
-      linkManager.checkURL(link.url);
+  results.forEach((page) => {
+    page.urlLinks.forEach((link) => {
+      manager.checkURL(link.url);
     });
-
-    //console.log(urlResultLookup);
   });
 
-  linkManager.finish(); // Signal that no more URLs will be added
-  await linkManager.onComplete();
+  manager.finish(); // Signal that no more URLs will be added
+  await manager.onComplete();
 }
 
-async function processExternalUrlLinks(results) {
+async function processExternalUrlLinks(results, manager = null) {
+  if (!manager) {
+    manager = new LinkManager(getHeadRequestStatusCode, 10);
+  }
   logFunction(`Function: processExternalUrlLinks()`);
-  await checkExternalUrlLinks(results); // Wait for all links to be checked
+  await checkExternalUrlLinks(results, manager); // Wait for all links to be checked
   logFunction(`Function FINISHED AWAITING: processExternalUrlLinks()`);
   // Now we can process the results and create errors for any links that failed.
   const errors = [];
   results.forEach((page, index, array) => {
-    //console.log(`debug: PAGE: ${page}`);
-    //console.log(page);
-    //exit();
     page.urlLinks.forEach((link, index, array) => {
-      const urlResult = linkManager.checkedUrls.get(link.url);
+      const urlResult = manager.checkedUrls.get(link.url);
       //console.log(urlResult);
       if (urlResult) {
         if (urlResult.statusCode === 200) {
@@ -536,7 +539,7 @@ async function processExternalUrlLinks(results) {
   return errors;
 }
 
-export { processExternalUrlLinks };
+export { processExternalUrlLinks, LinkManager };
 
 /* Format of a result of an external link.
       {

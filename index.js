@@ -54,7 +54,7 @@ program
     "vuepress"
   )
   .option(
-    "-h, --tryMarkdownforHTML [value]",
+    "-m, --tryMarkdownforHTML [value]",
     "Try a markdown file extension check if a link to HTML fails.",
     true
   )
