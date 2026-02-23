@@ -54,7 +54,7 @@ program
     "vuepress"
   )
   .option(
-    "-h, --tryMarkdownforHTML [value]",
+    "-m, --tryMarkdownforHTML [value]",
     "Try a markdown file extension check if a link to HTML fails.",
     true
   )
@@ -207,12 +207,10 @@ const replaceDelimiter = (str, underscore) =>
   underscore ? str.replace(/\s+/g, "_") : str.replace(/\s+/g, "-");
 
 const processFile = async (file) => {
-  sharedData.options.log.includes("functions")
-    ? console.log(`Function: processFile(): file: ${file}`)
-    : null;
+  logFunction(sharedData.options, `Function: processFile(): file: ${file}`);
   try {
     const contents = await fs.promises.readFile(file, "utf8");
-    const resultsForFile = processMarkdown(contents, file);
+    const resultsForFile = processMarkdown(contents, file, sharedData.options);
     //console.log(resultsForFile);
 
     resultsForFile["page_file"] = file;
@@ -236,9 +234,7 @@ const processFile = async (file) => {
 };
 
 const processDirectory = async (dir) => {
-  sharedData.options.log.includes("functions")
-    ? console.log(`Function: processDirectory(): dir: ${dir}`)
-    : null;
+  logFunction(sharedData.options, `Function: processDirectory(): dir: ${dir}`);
   const files = await fs.promises.readdir(dir, { withFileTypes: true });
   const results = [];
   for (let i = 0; i < files.length; i++) {
@@ -309,17 +305,17 @@ const processDirectory = async (dir) => {
   results["allErrors"].push(...pageErrors);
 
   // Process just the relative links to find errors like missing files, anchors
-  const errorsFromRelativeLinks = processRelativeLinks(results);
+  const errorsFromRelativeLinks = processRelativeLinks(results, sharedData.options);
 
   results["allErrors"].push(...errorsFromRelativeLinks);
 
   // Process just images linked in local file system - find errors like missing images.
-  const errorsFromLocalImageLinks = await checkLocalImageLinks(results);
+  const errorsFromLocalImageLinks = await checkLocalImageLinks(results, sharedData.options);
   //console.log(errorsFromLocalImageLinks)
   results["allErrors"].push(...errorsFromLocalImageLinks);
 
   // Process links to current site URL - should be relative links normally.
-  const errorsFromUrlsToLocalSite = await processUrlsToLocalSource(results);
+  const errorsFromUrlsToLocalSite = await processUrlsToLocalSource(results, sharedData.options);
   //console.log(errorsFromUrlsToLocalSite)
   results["allErrors"].push(...errorsFromUrlsToLocalSite);
 
@@ -327,10 +323,10 @@ const processDirectory = async (dir) => {
   // Guesses the table of contents file if not specified in options.toc
   sharedData.options.toc
     ? null
-    : (sharedData.options.toc = getPageWithMostLinks(results));
-  checkPageOrphans(results); // Perhaps should follow pattern of returning errors - currently updates results
+    : (sharedData.options.toc = getPageWithMostLinks(results, sharedData.options));
+  checkPageOrphans(results, sharedData.options); // Perhaps should follow pattern of returning errors - currently updates results
 
-  const errorsGlobalImageOrphanCheck = await checkImageOrphansGlobal(results);
+  const errorsGlobalImageOrphanCheck = await checkImageOrphansGlobal(results, sharedData.options, sharedData.allImageFiles);
   results["allErrors"].push(...errorsGlobalImageOrphanCheck);
 
   // Process links to externalURLs.
@@ -342,12 +338,12 @@ const processDirectory = async (dir) => {
 
   // Filter the errors based on the settings in options.
   // At time of writing just filters on specific set of pages.
-  let filteredResults = filterErrors(results.allErrors);
+  let filteredResults = filterErrors(results.allErrors, sharedData.options);
   // Filter out the ones we have indicated we want to ignore.
-  filteredResults = filterIgnoreErrors(filteredResults);
+  filteredResults = filterIgnoreErrors(filteredResults, sharedData.options);
 
   // Output the errors as console.logs
-  outputErrors(filteredResults);
+  outputErrors(filteredResults, sharedData.options);
 
   //make array and document options? ie. if includes ...
   function censorCircular(key, value) {
@@ -365,7 +361,7 @@ const processDirectory = async (dir) => {
 
   const jsonFilteredErrors = JSON.stringify(filteredResults, censorCircular, 2);
   //const jsonFilteredErrors = JSON.stringify(filteredResults, null, 2);
-  logToFile("./logs/filteredErrors.json", jsonFilteredErrors);
+  logToFile("./logs/filteredErrors.json", jsonFilteredErrors, sharedData.options);
 
   // Log filtered errors to standard out
   if (sharedData.options.log.includes("filterederrors")) {
@@ -374,14 +370,14 @@ const processDirectory = async (dir) => {
 
   //make array and document options? ie. if includes ...
   const jsonAllResults = JSON.stringify(results, censorCircular, 2);
-  logToFile("./logs/allResults.json", jsonAllResults);
+  logToFile("./logs/allResults.json", jsonAllResults, sharedData.options);
   if (sharedData.options.log.includes("allresults")) {
     console.log(jsonAllResults);
   }
 
   //make array and document options? ie. if includes ...
   const jsonAllErrors = JSON.stringify(results.allErrors, censorCircular, 2);
-  logToFile("./logs/allErrors.json", jsonAllErrors);
+  logToFile("./logs/allErrors.json", jsonAllErrors, sharedData.options);
 
   if (sharedData.options.log.includes("allerrors")) {
     console.log(jsonAllErrors);

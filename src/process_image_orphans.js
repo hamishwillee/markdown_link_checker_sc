@@ -1,9 +1,7 @@
-import { logToFile } from "./helpers.js";
+import { logToFile, logFunction } from "./helpers.js";
 import fs from "fs";
 import path from "path";
-import { sharedData } from "./shared_data.js";
 import { OrphanedImageError } from "./errors.js";
-import { logFunction } from "./helpers.js";
 
 function isImage(file) {
   const imageExtensions = [".jpg", ".jpeg", ".png", ".svg", ".gif", ".webm"];
@@ -14,8 +12,8 @@ function isImage(file) {
 var otherFileTypes = []; // Just used for logging in function below.
 
 // Gets all image files in a directory.
-async function getAllImageFilesInDirectory(dir) {
-  logFunction(`Function: getAllImageFilesInDirectory(${dir})`);
+async function getAllImageFilesInDirectory(dir, options) {
+  logFunction(options, `Function: getAllImageFilesInDirectory(${dir})`);
 
   // TODO put this all in a try catch and return a better error.
   // Or perhaps put around parent.
@@ -25,7 +23,7 @@ async function getAllImageFilesInDirectory(dir) {
   for (let i = 0; i < files.length; i++) {
     const file = path.join(dir, files[i].name);
     if (files[i].isDirectory()) {
-      const subImages = await getAllImageFilesInDirectory(file);
+      const subImages = await getAllImageFilesInDirectory(file, options);
       images.push(...subImages);
     } else if (isImage(file)) {
       images.push(file);
@@ -41,23 +39,23 @@ async function getAllImageFilesInDirectory(dir) {
 }
 
 // Checks if any images in the options.directory
-async function checkImageOrphansGlobal(results) {
-  logFunction(`Function: checkImageOrphansGlobal()`);
+async function checkImageOrphansGlobal(results, options, allImageFiles) {
+  logFunction(options, `Function: checkImageOrphansGlobal()`);
 
   const errors = [];
   let allImagesFound = [];
 
-  if (sharedData.options.imagedir !== "") {
+  if (options.imagedir !== "") {
     const imagePath = path.resolve(
-      sharedData.options.docsroot,
-      sharedData.options.imagedir
+      options.docsroot,
+      options.imagedir
     );
 
-    allImagesFound = await getAllImageFilesInDirectory(imagePath);
+    allImagesFound = await getAllImageFilesInDirectory(imagePath, options);
   }
 
-  sharedData.allImageFiles.forEach((value, valueAgain, set) => {
-    const imagePath = path.resolve(sharedData.options.root, value);
+  allImageFiles.forEach((value) => {
+    const imagePath = path.resolve(options.docsroot, value);
     //console.log('val: ' + value);
     allImagesFound.push(imagePath);
   });
@@ -79,7 +77,7 @@ async function checkImageOrphansGlobal(results) {
 
   allImagesFound.forEach((image) => {
     if (!allImagesLinked.includes(image)) {
-      const error = new OrphanedImageError({ file: image });
+      const error = new OrphanedImageError({ file: image, docsroot: options.docsroot });
       errors.push(error);
     }
   });

@@ -1,6 +1,5 @@
 //import { /*LinkError,*/ CurrentFileMissingAnchorError, LinkedFileMissingAnchorError, LinkedInternalPageMissingError, InternalLinkToHTMLError, UrlToLocalSiteError} from "./errors.js"
 
-import { sharedData } from "./shared_data.js";
 import { logFunction } from "./helpers.js";
 
 import promptSync from "prompt-sync";
@@ -12,8 +11,9 @@ import path from "path";
 //Function that generates console and/or log output from an array of error objects.
 // - `results` is an array of error objects.
 //  These will have a `type` and a `page`. They may also have other values, depending on type of error - such as linkurl
-function outputErrors(results) {
-  logFunction("Function: outputErrors()");
+function outputErrors(results, options) {
+  logFunction(options, "Function: outputErrors()");
+  let ignoreErrors = [];
 
   //Sort results by page and type.
   // Perhaps next step is to create only get info for particular pages.
@@ -37,10 +37,10 @@ function outputErrors(results) {
   //console.log(sortedByPageErrors);
   for (const page in sortedByPageErrors) {
     let pageFromRoot;
-    if (sharedData.options.docsroot) {
-      pageFromRoot = page.split(sharedData.options.docsroot)[1];
+    if (options.docsroot) {
+      pageFromRoot = page.split(options.docsroot)[1];
     } else {
-      pageFromRoot = page.split(sharedData.options.markdownroot)[1];
+      pageFromRoot = page.split(options.markdownroot)[1];
     }
     //console.log(`\nXX${page}`); //Root needs to full path - not '.' or whatever
     console.log(`\n${pageFromRoot}`); //Root needs to full path - not '.' or whatever
@@ -49,12 +49,9 @@ function outputErrors(results) {
         error.output();
 
         // Add items to the errors to be ignored, if enabled.
-        if (sharedData.options.interactive) {
+        if (options.interactive) {
           const hideError = prompt("Stop reporting on this error? (Y/N) ", "N");
           console.log(`HideError: ${hideError}`);
-          if (!sharedData.IgnoreErrors) {
-            sharedData.IgnoreErrors = [];
-          }
           if (hideError === "X" || hideError === "x") {
             // Exit without saving
             exit();
@@ -75,7 +72,7 @@ function outputErrors(results) {
 
             reduceError.hideReason = prompt("Why? (enter for now reason) ", "");
 
-            sharedData.IgnoreErrors.push(reduceError);
+            ignoreErrors.push(reduceError);
             //updateErrors = true;
           }
         }
@@ -85,17 +82,17 @@ function outputErrors(results) {
 
   // Create the `_link_checker_sc` folder if it doesn't exist.
   const dirPath = path.join(process.cwd(), "_link_checker_sc");
-  if (!fs.existsSync(dirPath) && sharedData.options.interactive) {
+  if (!fs.existsSync(dirPath) && options.interactive) {
     fs.mkdirSync(dirPath);
   }
 
   // Create create file to store the json for the errors into
   // But only if iterative update in progress
-  if (sharedData.options.interactive) {
+  if (options.interactive) {
     const filePath = path.join(dirPath, "ignore_errors.json");
     fs.writeFileSync(
       filePath,
-      JSON.stringify(sharedData.IgnoreErrors, null, 2)
+      JSON.stringify(ignoreErrors, null, 2)
     );
   }
 }

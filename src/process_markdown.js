@@ -1,12 +1,11 @@
 import { Link } from "./links.js";
-import { sharedData } from "./shared_data.js";
 import { logFunction } from "./helpers.js";
 import { processReferenceLinks } from "./process_markdown_reflinks.js";
 
 // Returns slug for a string (markdown heading) using Vuepress algorithm.
 // Algorithm from chatgpt - needs testing.
-const processMarkdown = (contents, page) => {
-  logFunction(`Function: processMarkdown(): page: ${page}`);
+const processMarkdown = (contents, page, options) => {
+  logFunction(options, `Function: processMarkdown(): page: ${page}`);
 
   const headings = [];
   //const anchors = [];
@@ -47,7 +46,7 @@ const processMarkdown = (contents, page) => {
 
         //console.log(sharedData.options.anchor_in_heading);
 
-        if (sharedData.options.anchor_in_heading) {
+        if (options.anchor_in_heading) {
           // True by default - catch anchors in headings
 
           // Define the regex pattern to match the heading and anchor
@@ -75,13 +74,14 @@ const processMarkdown = (contents, page) => {
         urlLocalLinks,
         urlImageLinks,
         unHandledLinkTypes,
-        page
+        page,
+        options
       );
 
       // This gets a reference links
     }
 
-    const referenceLinkInfo = processReferenceLinks(contents, page);
+    const referenceLinkInfo = processReferenceLinks(contents, page, options);
     urlLinks.push(...referenceLinkInfo.urlLinks);
     urlLocalLinks.push(...referenceLinkInfo.urlLocalLinks);
     urlImageLinks.push(...referenceLinkInfo.urlImageLinks);
@@ -138,9 +138,10 @@ const processLineMarkdownLinks = (
   urlLocalLinks,
   urlImageLinks,
   unHandledLinkTypes,
-  page
+  page,
+  options
 ) => {
-  logFunction(`Function: processMarkdownLinks(): page: ${page}`);
+  logFunction(options, `Function: processMarkdownLinks(): page: ${page}`);
 
   //const regex = /(?<prefix>[!@]?)\[(?<text>[^\]]+)\]\((?<url>\S+?)(?:\s+"(?<title>[^"]+)")?\)/g;
   // Match to Markdown link OR image
@@ -172,9 +173,9 @@ const processLineMarkdownLinks = (
         // TODO - prepend the standard URL
       }
     } else if (
-      sharedData.options.site_url &&
-      (linkUrl.startsWith(`http://${sharedData.options.site_url}`) ||
-        linkUrl.startsWith(`https://${sharedData.options.site_url}`))
+      options.site_url &&
+      (linkUrl.startsWith(`http://${options.site_url}`) ||
+        linkUrl.startsWith(`https://${options.site_url}`))
     ) {
       //console.log(link);
       linkType = "urlLocalLink";
@@ -194,6 +195,7 @@ const processLineMarkdownLinks = (
       text: linkText,
       title: linkTitle,
       type: linkType,
+      options: options,
     });
     //console.log(`XXLINKTESTnewLink: ${JSON.stringify(link, null, 2)}`);
 
@@ -236,7 +238,7 @@ const processLineMarkdownLinks = (
       }
       default: {
         unHandledLinkTypes.push(link);
-        sharedData.options.log.includes("todo")
+        options.log.includes("todo")
           ? console.log(`TODO: 3Unhandled link.type: ${link.type}`)
           : null;
         break;
@@ -279,9 +281,9 @@ const processLineMarkdownLinks = (
 
     let linkType = "";
     if (
-      sharedData.options.site_url &&
-      (linkUrl.startsWith(`http://${sharedData.options.site_url}`) ||
-        linkUrl.startsWith(`https://${sharedData.options.site_url}`))
+      options.site_url &&
+      (linkUrl.startsWith(`http://${options.site_url}`) ||
+        linkUrl.startsWith(`https://${options.site_url}`))
     ) {
       //console.log(link);
       linkType = "urlLocalLink";
@@ -301,6 +303,7 @@ const processLineMarkdownLinks = (
       type: linkType,
       text: linkText,
       title: linkTitle /* type: linkType */,
+      options: options,
     });
 
     // For now, dump in different arrays. Might just add to one array eventually
@@ -343,7 +346,7 @@ const processLineMarkdownLinks = (
 
       default: {
         unHandledLinkTypes.push(link);
-        sharedData.options.log.includes("todo")
+        options.log.includes("todo")
           ? console.log(`TODO: 2Unhandled link.type: ${link.type}`)
           : null;
         break;
@@ -381,6 +384,7 @@ const processLineMarkdownLinks = (
       url: linkUrl,
       text: linkText,
       title: linkTitle /* type: linkType */,
+      options: options,
     });
 
     /*
@@ -429,7 +433,7 @@ const processLineMarkdownLinks = (
 
       default: {
         unHandledLinkTypes.push(link);
-        sharedData.options.log.includes("todo")
+        options.log.includes("todo")
           ? console.log(`TODO: 1Unhandled link.type: ${link.type}`)
           : null;
         break;

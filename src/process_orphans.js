@@ -1,13 +1,11 @@
-import { logToFile } from "./helpers.js";
+import { logToFile, logFunction } from "./helpers.js";
 import path from "path";
-import { sharedData } from "./shared_data.js";
 import { PageNotInTOCError, PageNotLinkedInternallyError } from "./errors.js";
-import { logFunction } from "./helpers.js";
 
 // Gets page with most links. Supposed to be used on the allResults object that is an array of objects about each page.
 // Will use to get the summary.
-function getPageWithMostLinks(pages) {
-  logFunction(`Function: getPageWithMostLinks`);
+function getPageWithMostLinks(pages, options) {
+  logFunction(options, `Function: getPageWithMostLinks`);
 
   return pages.reduce(
     (maxLinksPage, currentPage) => {
@@ -25,7 +23,7 @@ function getPageWithMostLinks(pages) {
 
 // Get any orphans (no links from summary and no links at all)
 //
-function checkPageOrphans(results) {
+function checkPageOrphans(results, options) {
   const resultObj = {};
   const allInternalAbsLinks = [];
 
@@ -71,31 +69,31 @@ function checkPageOrphans(results) {
     if (!allInternalAbsLinks.some((absLink) => absLink === filePath)) {
       if (obj.redirectTo) {
         //do nothing
-      } else if (obj.page_file === sharedData.options.toc) {
+      } else if (obj.page_file === options.toc) {
         //do nothing
       } else {
         //if it a redirect file then it shouldn't be linked.
         allFilesNoReference.push(filePath);
         //console.log(`File "${filePath}" not referenced by any absolute link`);
-        
-        const error = new PageNotLinkedInternallyError({file: obj.page_file});
+
+        const error = new PageNotLinkedInternallyError({file: obj.page_file, docsroot: options.docsroot});
         results.allErrors.push(error);
         allFilesReferenced = false;
       }
     }
 
-    const summaryFileLinks = resultObj[sharedData.options.toc];
+    const summaryFileLinks = resultObj[options.toc];
 
     if (summaryFileLinks && !summaryFileLinks.some((absLink) => absLink === filePath)) {
       if (obj.redirectTo) {
         // do nothing /-if it a redirect file then it shouldn't be linked.
 		//console.log(`EXECUTED: ${obj.page_file} in redirect`)
-      } else if (obj.page_file === sharedData.options.toc) {
+      } else if (obj.page_file === options.toc) {
         //do nothing - summary shouldt be error for summary.
       } else {
-        
+
         allFilesNoSummaryReference.push(filePath);
-        const error = new PageNotInTOCError({file: obj.page_file});
+        const error = new PageNotInTOCError({file: obj.page_file, docsroot: options.docsroot, toc: options.toc});
 
         if (!results.allErrors) {
           results["allErrors"] = [];
@@ -112,7 +110,7 @@ function checkPageOrphans(results) {
       null,
       2
     );
-    logToFile("./logs/allFilesNoReference.json", jsonAllFilesNotReferenced);
+    logToFile("./logs/allFilesNoReference.json", jsonAllFilesNotReferenced, options);
   } else {
     //console.log("All files referenced at least once");
   }
@@ -125,18 +123,20 @@ function checkPageOrphans(results) {
     );
     logToFile(
       "./logs/allFilesNoSummaryReference.json",
-      jsonAllFilesNotSummaryReferenced
+      jsonAllFilesNotSummaryReferenced,
+      options
     );
   } else {
     //console.log("All files referenced at least once");
   }
 
-  if (sharedData.options.log.includes("quick")) {
+  if (options.log.includes("quick")) {
     //console.log(resultObj);
     const jsonFilesWithAbsoluteLinks = JSON.stringify(resultObj, null, 2);
     logToFile(
       "./logs/pagesResolvedAbsoluteLinks.json",
-      jsonFilesWithAbsoluteLinks
+      jsonFilesWithAbsoluteLinks,
+      options
     );
   }
 }

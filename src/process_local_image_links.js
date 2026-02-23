@@ -1,13 +1,12 @@
 import path from "path";
 import fs from "fs";
-import { sharedData } from "./shared_data.js";
 import { LocalImageNotFoundError } from "./errors.js";
 import { logFunction } from "./helpers.js";
 
 // Checks if every image in every markdown page (results.page.relativeImageLinks) is present on the file system.
 // - results is the array of information coming out of markdown parsing.
-async function checkLocalImageLinks(results) {
-  logFunction(`Function: checkLocalImageLinks()`);
+async function checkLocalImageLinks(results, options) {
+  logFunction(options, `Function: checkLocalImageLinks()`);
   const errors = [];
   const promises = [];
 

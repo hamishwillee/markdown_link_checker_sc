@@ -1,7 +1,5 @@
-import { sharedData } from "./shared_data.js";
-
 class LinkError {
-  constructor({ type, file, link = null }) {
+  constructor({ type, file, link = null, docsroot = null }) {
     if (!type) {
       throw new Error("LinkError: Type is required!");
     } else {
@@ -14,8 +12,8 @@ class LinkError {
       //console.log(`debugX: fileRelativeToRoot: ${this.fileRelativeToRoot}`);
     } else {
       this.file = file; // i.e. infer file from link, but if link not specified then can take passed value
-      this.fileRelativeToRoot = this.file.split(sharedData.options.docsroot)[1];
-      //console.log(        `debug: sharedData.options.docsroot: ${sharedData.options.docsroot}`      );
+      this.fileRelativeToRoot = this.file.split(docsroot)[1];
+      //console.log(`debug: docsroot: ${docsroot}`);
       //console.log(`debug: fileRelativeToRoot: ${this.fileRelativeToRoot}`);
       this.fileRelativeToRoot =
         this.fileRelativeToRoot.startsWith("/") ||
@@ -33,8 +31,8 @@ class LinkError {
 }
 
 class ExternalLinkError extends LinkError {
-  constructor({ file, link, statusCode, statusMessage, error }) {
-    super({ file: file, link: link, type: "ExternalLinkError" }); // call the super class constructor and pass in the param object
+  constructor({ file, link, statusCode, statusMessage, error, docsroot }) {
+    super({ file: file, link: link, type: "ExternalLinkError", docsroot }); // call the super class constructor and pass in the param object
     this.statusCode = statusCode; // HTTP status code, if available
     this.statusMessage = statusMessage; // HTTP status message, if available
     this.error = error; // Error message, if available
@@ -52,8 +50,8 @@ class ExternalLinkError extends LinkError {
 }
 
 class ExternalLinkWarning extends LinkError {
-  constructor({ file, link, statusCode, statusMessage, error }) {
-    super({ file: file, link: link, type: "ExternalLinkWarning" }); // call the super class constructor and pass in the param object
+  constructor({ file, link, statusCode, statusMessage, error, docsroot }) {
+    super({ file: file, link: link, type: "ExternalLinkWarning", docsroot }); // call the super class constructor and pass in the param object
     this.statusCode = statusCode; // HTTP status code, if available
     this.statusMessage = statusMessage; // HTTP status message, if available
     this.error = error; // Error message, if available
@@ -72,8 +70,8 @@ class ExternalLinkWarning extends LinkError {
 
 // Anchor link in current file does not exist
 class CurrentFileMissingAnchorError extends LinkError {
-  constructor({ file, link }) {
-    super({ file: file, link: link, type: "CurrentFileMissingAnchor" }); // call the super class constructor and pass in the param object
+  constructor({ file, link, docsroot }) {
+    super({ file: file, link: link, type: "CurrentFileMissingAnchor", docsroot }); // call the super class constructor and pass in the param object
   }
   output() {
     console.log(
@@ -87,8 +85,8 @@ class CurrentFileMissingAnchorError extends LinkError {
 
 // Linked file (relative) exists but anchor in it does not
 class LinkedFileMissingAnchorError extends LinkError {
-  constructor({ file, link }) {
-    super({ file: file, link: link, type: "LinkedFileMissingAnchor" });
+  constructor({ file, link, docsroot }) {
+    super({ file: file, link: link, type: "LinkedFileMissingAnchor", docsroot });
   }
   output() {
     console.log(
@@ -101,8 +99,8 @@ class LinkedFileMissingAnchorError extends LinkError {
 
 // A link to a page (markdown, and maybe HTML) that does not exist.
 class LinkedInternalPageMissingError extends LinkError {
-  constructor({ file, link }) {
-    super({ file: file, link: link, type: "LinkedInternalPageMissing" });
+  constructor({ file, link, docsroot }) {
+    super({ file: file, link: link, type: "LinkedInternalPageMissing", docsroot });
   }
   output() {
     console.log(
@@ -113,8 +111,8 @@ class LinkedInternalPageMissingError extends LinkError {
 
 // A link to an HTML file probably should be markdown
 class InternalLinkToHTMLError extends LinkError {
-  constructor({ file, link }) {
-    super({ file: file, link: link, type: "InternalLinkToHTML" });
+  constructor({ file, link, docsroot }) {
+    super({ file: file, link: link, type: "InternalLinkToHTML", docsroot });
   }
   output() {
     console.log(`- ${this.type}: ${this.link.url} (should be ".md"?)`);
@@ -123,8 +121,8 @@ class InternalLinkToHTMLError extends LinkError {
 
 // A link to a URL that is this site, and should probably be an internal/relative link
 class UrlToLocalSiteError extends LinkError {
-  constructor({ file, link }) {
-    super({ file: file, link: link, type: "UrlToLocalSite" });
+  constructor({ file, link, docsroot }) {
+    super({ file: file, link: link, type: "UrlToLocalSite", docsroot });
   }
   output() {
     console.log(
@@ -135,20 +133,21 @@ class UrlToLocalSiteError extends LinkError {
 
 // Page is not linked from TOC page - here TOC is the page with most links, or may be explicitly defined.
 class PageNotInTOCError extends LinkError {
-  constructor({ file, link }) {
-    super({ file: file, link: link, type: "PageNotInTOC" });
+  constructor({ file, link, docsroot, toc }) {
+    super({ file: file, link: link, type: "PageNotInTOC", docsroot });
+    this.toc = toc;
   }
   output() {
     console.log(
-      `- ${this.type}:  Page not in Table of Contents (${sharedData.options.toc})`
+      `- ${this.type}:  Page not in Table of Contents (${this.toc})`
     );
   }
 }
 
 // Page is not linked from any other page
 class PageNotLinkedInternallyError extends LinkError {
-  constructor({ file, link }) {
-    super({ file: file, link: link, type: "PageNotLinkedInternally" });
+  constructor({ file, link, docsroot }) {
+    super({ file: file, link: link, type: "PageNotLinkedInternally", docsroot });
   }
   output() {
     console.log(
@@ -159,8 +158,8 @@ class PageNotLinkedInternallyError extends LinkError {
 
 // Image is linked from page but not found
 class LocalImageNotFoundError extends LinkError {
-  constructor({ file, link }) {
-    super({ file: file, link: link, type: "LocalImageNotFound" });
+  constructor({ file, link, docsroot }) {
+    super({ file: file, link: link, type: "LocalImageNotFound", docsroot });
   }
   output() {
     console.log(
@@ -171,8 +170,8 @@ class LocalImageNotFoundError extends LinkError {
 
 // Image is linked from page but not found
 class OrphanedImageError extends LinkError {
-  constructor({ file, link }) {
-    super({ file: file, link: link, type: "OrphanedImage" });
+  constructor({ file, link, docsroot }) {
+    super({ file: file, link: link, type: "OrphanedImage", docsroot });
   }
   output() {
     console.log(`- ${this.type}: Image not linked from docs: ${this.file}`);
@@ -182,8 +181,8 @@ class OrphanedImageError extends LinkError {
 class ReferenceLinkEmptyReferenceError extends LinkError {
   // A reference like [linktext][]
   // this isn't valid because the reference to map to is undefined
-  constructor({ file, linkMatch }) {
-    super({ file: file, type: "ReferenceLinkEmptyReference" });
+  constructor({ file, linkMatch, docsroot }) {
+    super({ file: file, type: "ReferenceLinkEmptyReference", docsroot });
     if (!linkMatch) {
       throw new Error(
         "ReferenceLinkEmptyReferenceError: linkMatch is required!"
@@ -200,8 +199,8 @@ class ReferenceLinkEmptyReferenceError extends LinkError {
 }
 
 class ReferenceForLinkNotFoundError extends LinkError {
-  constructor({ file, linkMatch, refMatch }) {
-    super({ file: file, type: "ReferenceForLinkNotFound" });
+  constructor({ file, linkMatch, refMatch, docsroot }) {
+    super({ file: file, type: "ReferenceForLinkNotFound", docsroot });
     if (!linkMatch) {
       throw new Error("ReferenceForLinkNotFoundError: linkMatch is required!");
     } else {
