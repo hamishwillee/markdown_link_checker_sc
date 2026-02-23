@@ -1,547 +1,466 @@
-import path from "path";
-import { ExternalLinkError, ExternalLinkWarning } from "./errors.js"; // TODO Add error for external links
+import readline from "readline";
+import { ExternalLinkError, ExternalLinkWarning } from "./errors.js";
 import { logFunction } from "./helpers.js";
-import { exit } from "process";
-
-import { URL } from "url"; // Import URL from the 'url' built-in module
-import http from "http"; // Import http from the 'http' built-in module
-import https from "https"; // Import https from the 'https' built-in module
+import { URL } from "url";
+import http from "http";
+import https from "https";
 
 /**
- * Performs a HEAD request to a given URL and returns the HTTP status code.
+ * Strips the fragment (#...) from a URL string so that
+ * https://example.com/page#section-1 and https://example.com/page#section-2
+ * are treated as the same resource when making HTTP requests.
  *
- * @param {string} urlString The URL to make the HEAD request to.
- * @param {number} [timeoutMs=5000] The timeout in milliseconds for the request. Defaults to 5000ms (5 seconds).
- * @returns {Promise<number>} A Promise that resolves with the HTTP status code,
- * or rejects with an error if the request fails or times out.
- */
-async function getHeadRequestStatusCodeDeprec(urlString, timeoutMs = 5000) {
-  // We use the 'URL' class to parse the URL string and extract its components.
-  // This is crucial for correctly configuring the HTTP/HTTPS request options.
-  const url = new URL(urlString);
-
-  // Determine whether to use http or https module based on the protocol.
-  // This makes the function flexible for both HTTP and HTTPS URLs.
-  // We use the imported http and https modules directly.
-  const client = url.protocol === "https:" ? https : http;
-
-  // Define the options for the request.
-  // 'method: 'HEAD'' is the core of this function, ensuring only headers are fetched.
-  // 'hostname', 'port', and 'path' are extracted from the parsed URL.
-  const options = {
-    method: "HEAD",
-    hostname: url.hostname,
-    port: url.port || (url.protocol === "https:" ? 443 : 80), // Default ports if not specified
-    path: url.pathname + url.search, // Include query parameters
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-      Accept:
-        "text/html, application/xhtml+xml;q=0.9, application/vnd.wap.xhtml+xml;q=0.6, */*;q=0.5",
-      "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
-    },
-  };
-
-  return new Promise((resolve, reject) => {
-    let timeoutId; // Variable to hold the timeout ID
-
-    const req = client.request(options, (res) => {
-      clearTimeout(timeoutId); // Clear the timeout if response is received
-
-      const { statusCode, statusMessage, headers } = res;
-      let redirectUrl;
-
-      // Check for redirect status codes (3xx)
-      if (statusCode >= 300 && statusCode < 400 && headers.location) {
-        // Resolve the redirect URL relative to the original URL if it's a relative path
-        redirectUrl = new URL(headers.location, urlString).toString();
-      }
-
-      // Resolve with an object containing statusCode, statusMessage, and optionally redirectUrl
-      resolve({ statusCode, statusMessage, redirectUrl });
-      //resolve({ statusCode: res.statusCode, statusMessage: res.statusMessage });
-      res.resume(); // Consume response data to free up memory/connection
-    });
-
-    // Set a timeout for the request
-    timeoutId = setTimeout(() => {
-      req.destroy(
-        new Error(`Request timed out after ${timeoutMs}ms for ${urlString}`)
-      ); // Abort the request
-    }, timeoutMs);
-
-    // Handle any errors that occur during the request (e.g., network issues, or timeout destroying the request).
-    req.on("error", (e) => {
-      clearTimeout(timeoutId); // Clear the timeout on error too
-      //console.error(`Problem with request to ${urlString}: ${e.message}`);
-      reject(e);
-    });
-
-    // End the request. For HEAD requests, there's no body to send.
-    req.end();
-  });
-}
-
-/**
- * Performs an HTTP request (HEAD or GET) to a given URL and returns the HTTP status code and other details.
- * This is a generalized function to handle both HEAD and GET requests.
+ * Malformed URLs are returned unchanged; they will be caught later in _processQueue.
  *
- * @param {string} urlString The URL to make the request to.
- * @param {'HEAD' | 'GET'} method The HTTP method to use ('HEAD' or 'GET').
- * @param {number} [timeoutMs=5000] The timeout in milliseconds for the request. Defaults to 5000ms (5 seconds).
- * @returns {Promise<{statusCode: number, statusMessage: string, redirectUrl?: string}>} A Promise that resolves with an object
- * containing the HTTP status code, status message, and optionally a redirect URL,
- * or rejects with an error if the request fails or times out.
+ * @param {string} urlString
+ * @returns {string}
  */
-async function makeHttpRequest(urlString, method, timeoutMs = 5000) {
-  // Parse the URL string to extract its components (hostname, port, path, protocol).
-  const url = new URL(urlString);
-
-  // Determine whether to use the http or https module based on the URL's protocol.
-  const client = url.protocol === "https:" ? https : http;
-
-  // Define the options for the HTTP request.
-  const options = {
-    method: method, // Use the specified method ('HEAD' or 'GET')
-    hostname: url.hostname,
-    port: url.port || (url.protocol === "https:" ? 443 : 80), // Default ports for HTTP/HTTPS
-    path: url.pathname + url.search, // Include query parameters from the URL
-    headers: {
-      // Standard User-Agent header to mimic a browser, which can help avoid some blocks.
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-      // Accept header to indicate preferred content types.
-      Accept:
-        "text/html, application/xhtml+xml;q=0.9, application/vnd.wap.xhtml+xml;q=0.6, */*;q=0.5",
-      // Accept-Language header for language preference.
-      "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
-    },
-  };
-
-  return new Promise((resolve, reject) => {
-    let timeoutId; // Variable to store the timeout ID for clearing it later.
-
-    // Create the HTTP request.
-    const req = client.request(options, (res) => {
-      clearTimeout(timeoutId); // Clear the timeout as soon as a response is received.
-
-      const { statusCode, statusMessage, headers } = res;
-      let redirectUrl;
-
-      // Check for redirect status codes (3xx range).
-      if (statusCode >= 300 && statusCode < 400 && headers.location) {
-        // Resolve the redirect URL relative to the original URL if it's a relative path.
-        redirectUrl = new URL(headers.location, urlString).toString();
-      }
-
-      // Consume response data to free up memory/connection resources.
-      // For HEAD requests, there's no body, but for GET, we still need to consume it.
-      res.resume();
-
-      // Resolve the promise with the request details.
-      resolve({ statusCode, statusMessage, redirectUrl });
-    });
-
-    // Set a timeout for the request. If the request doesn't complete within this time, it will be aborted.
-    timeoutId = setTimeout(() => {
-      req.destroy(
-        new Error(
-          `Request timed out after ${timeoutMs}ms for ${urlString} (${method})`
-        )
-      ); // Abort the request and reject the promise.
-    }, timeoutMs);
-
-    // Handle any errors that occur during the request (e.g., network issues, DNS resolution failures, or timeout).
-    req.on("error", (e) => {
-      clearTimeout(timeoutId); // Clear the timeout if an error occurs.
-      reject(e); // Reject the promise with the error.
-    });
-
-    // End the request. For HEAD requests, there's no body to send. For GET, the body is typically empty as well.
-    req.end();
-  });
-}
-
-/**
- * Performs a HEAD request to a given URL and, if it returns a 403 Forbidden, retries with a GET request.
- *
- * @param {string} urlString The URL to make the request to.
- * @param {number} [timeoutMs=5000] The timeout in milliseconds for each request. Defaults to 5000ms.
- * @returns {Promise<{statusCode: number, statusMessage: string, redirectUrl?: string}>} A Promise that resolves with an object
- * containing the HTTP status code, status message, and optionally a redirect URL,
- * or rejects with an error if both requests fail or time out.
- */
-async function getHeadRequestStatusCode(urlString, timeoutMs = 5000) {
+function stripFragment(urlString) {
   try {
-    // Attempt the HEAD request first.
-    const headResult = await makeHttpRequest(urlString, "HEAD", timeoutMs);
-
-    // If the HEAD request returns a 403 Forbidden, retry with a GET request.
-    if (headResult.statusCode === 403) {
-      /*
-      console.log(
-        `HEAD request to ${urlString} returned 403 Forbidden. Retrying with GET...`
-      );
-      */
-      // Perform the GET request.
-      const getResult = await makeHttpRequest(urlString, "GET", timeoutMs);
-      return getResult; // Return the result from the GET request.
-    } else {
-      return headResult; // Otherwise, return the result from the HEAD request.
-    }
-  } catch (error) {
-    // If the initial HEAD request fails (e.g., network error, timeout),
-    // or the subsequent GET request fails, propagate the error.
-    throw error;
+    const u = new URL(urlString);
+    u.hash = "";
+    return u.toString();
+  } catch {
+    return urlString;
   }
 }
 
 /**
- * Manages concurrent HEAD requests, queuing, and caching results with per-host concurrency limits.
+ * Performs an HTTP request (HEAD or GET) to a given URL and returns the HTTP
+ * status code, status message, redirect URL (if any), and parsed Retry-After
+ * delay (if the server supplied one).
+ *
+ * @param {string} urlString
+ * @param {'HEAD' | 'GET'} method
+ * @param {number} [timeoutMs=5000]
+ * @returns {Promise<{statusCode: number, statusMessage: string, redirectUrl?: string, retryAfterMs?: number}>}
+ */
+async function makeHttpRequest(urlString, method, timeoutMs = 5000) {
+  const url = new URL(urlString);
+  const client = url.protocol === "https:" ? https : http;
+  const options = {
+    method,
+    hostname: url.hostname,
+    port: url.port || (url.protocol === "https:" ? 443 : 80),
+    path: url.pathname + url.search,
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+      Accept:
+        "text/html, application/xhtml+xml;q=0.9, application/vnd.wap.xhtml+xml;q=0.6, */*;q=0.5",
+      "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
+    },
+  };
+
+  return new Promise((resolve, reject) => {
+    let timeoutId;
+
+    const req = client.request(options, (res) => {
+      clearTimeout(timeoutId);
+      const { statusCode, statusMessage, headers } = res;
+
+      let redirectUrl;
+      if (statusCode >= 300 && statusCode < 400 && headers.location) {
+        redirectUrl = new URL(headers.location, urlString).toString();
+      }
+
+      // Parse Retry-After header (integer seconds only; HTTP-date format ignored).
+      let retryAfterMs;
+      if (headers["retry-after"]) {
+        const parsed = parseInt(headers["retry-after"], 10);
+        if (!isNaN(parsed)) retryAfterMs = parsed * 1000;
+      }
+
+      res.resume();
+      resolve({ statusCode, statusMessage, redirectUrl, retryAfterMs });
+    });
+
+    timeoutId = setTimeout(() => {
+      req.destroy(
+        new Error(`Request timed out after ${timeoutMs}ms for ${urlString} (${method})`)
+      );
+    }, timeoutMs);
+
+    req.on("error", (e) => {
+      clearTimeout(timeoutId);
+      reject(e);
+    });
+
+    req.end();
+  });
+}
+
+/**
+ * Performs a HEAD request and retries with GET if the server returns 403
+ * (some servers block HEAD requests).
+ *
+ * @param {string} urlString
+ * @param {number} [timeoutMs=5000]
+ * @returns {Promise<{statusCode: number, statusMessage: string, redirectUrl?: string, retryAfterMs?: number}>}
+ */
+async function getHeadRequestStatusCode(urlString, timeoutMs = 5000) {
+  const headResult = await makeHttpRequest(urlString, "HEAD", timeoutMs);
+  if (headResult.statusCode === 403) {
+    return makeHttpRequest(urlString, "GET", timeoutMs);
+  }
+  return headResult;
+}
+
+/**
+ * Manages concurrent HTTP requests with:
+ *   - A primary pendingQueue for first-attempt URLs.
+ *   - A separate retryQueue for 429-rate-limited URLs, drained only after
+ *     pendingQueue is empty (so retries never starve first-time requests).
+ *   - Per-hostname concurrency limiting (maxPerHostRequests, default 2).
+ *   - Global concurrency limiting (maxActiveRequests).
+ *   - Exponential backoff for 429s, honouring Retry-After headers.
+ *   - Fragment stripping: https://host/page#a and https://host/page#b share
+ *     one HTTP request.
+ *   - abort() to stop immediately and continue with partial results.
  */
 class LinkManager {
-  /**
-   * @private {Map<string, {statusCode?: number, statusMessage?: string, error?: Error, redirectUrl?: string}>} checkedUrls - Dictionary of URLs that have been resolved, with their results.
-   * @private {string[]} pendingQueue - Queue of URLs waiting to be processed.
-   * @private {Map<string, Promise<any>>} activeRequests - Map of URLs currently being processed and their active Promises.
-   * @private {Set<string>} _activeHostnames - Set of hostnames that currently have an active request.
-   * @private {number} maxActiveRequests - Maximum number of concurrent HEAD requests allowed.
-   * @private {Function} headRequestFunction - The function used to perform HEAD requests (e.g., getHeadRequestStatusCode).
-   * @private {boolean} _finishedAddingUrls - Flag to indicate if no more URLs will be added.
-   * @private {Promise<void>} _completionPromise - A Promise that resolves when all URLs are processed.
-   * @private {Function} _resolveCompletionPromise - Function to resolve _completionPromise.
-   * @private {Map<string, number>} _retryAttempts - Map to track retry attempts for each URL (for 429 errors).
-   * @private {number} _maxRetries - Maximum number of retries for a 429 error.
-   * @private {number} _baseRetryDelayMs - Base delay for exponential backoff.
-   */
   constructor(headRequestFunction, maxConcurrent = 10) {
-    this.checkedUrls = new Map(); // Stores resolved results (statusCode or error)
-    this.pendingQueue = []; // URLs waiting to be picked up
-    this.activeRequests = new Map(); // URLs currently being processed (URL -> Promise)
-    this._activeHostnames = new Set(); // Tracks hostnames with active requests
-    this.maxActiveRequests = maxConcurrent; // Global concurrency limit
-    this.headRequestFunction = headRequestFunction; // Function to execute HEAD request
-    this._finishedAddingUrls = false; // Initially, we can still add URLs
+    this.checkedUrls = new Map();
 
-    this._retryAttempts = new Map(); // Tracks how many times a URL has been retried for 429
-    this._maxRetries = 3; // Max attempts for a 429 error
-    this._baseRetryDelayMs = 1000; // 1 second base delay for exponential backoff
-    this._pendingRetryCount = 0; // Number of 429 retries scheduled but not yet fired
+    // First-attempt URLs.
+    this.pendingQueue = [];
+    this._pendingSet = new Set(); // O(1) membership test for pendingQueue
 
-    // Create a Promise that will resolve when the manager is done processing everything
+    // 429-rate-limited URLs waiting for their backoff to expire.
+    // Each entry: { url: string, notBefore: number (epoch ms) }
+    // Drained only when pendingQueue is empty.
+    this.retryQueue = [];
+    this._retrySet = new Set(); // O(1) membership test for retryQueue
+
+    this.activeRequests = new Map();        // url -> Promise
+    this._activeHostCounts = new Map();     // hostname -> active request count
+    this.maxActiveRequests = maxConcurrent;
+    this.maxPerHostRequests = 2;            // concurrent requests allowed per hostname
+
+    this.headRequestFunction = headRequestFunction;
+    this._finishedAddingUrls = false;
+    this._aborted = false;
+
+    this._retryAttempts = new Map();
+    this._maxRetries = 3;
+    this._baseRetryDelayMs = 1000;
+
     this._completionPromise = new Promise((resolve) => {
       this._resolveCompletionPromise = resolve;
     });
   }
 
   /**
-   * Checks the status of a given URL, managing its lifecycle through pending, active, and resolved states.
+   * Registers a URL to be checked.  Strips the fragment before queuing so
+   * that multiple links to the same page (different anchors) share one request.
    *
-   * @param {string} urlString The URL to check.
-   * @param {boolean} [isInternalTrigger=false] - Internal flag: true if called due to a redirect or retry.
-   * @returns {{type: 'resolved', url: string, statusCode?: number, statusMessage?: string, error?: Error, redirectUrl?: string} | {type: 'active', url: string} | {type: 'pending', url: string}}
-   * An object indicating the current status of the URL.
+   * @param {string} urlString
+   * @param {boolean} [isInternalTrigger=false] Set true for redirects/retries.
+   * @returns {{ type: 'resolved'|'active'|'pending'|'error', url: string, ...}}
    */
   checkURL(urlString, isInternalTrigger = false) {
-    // If manager has been signaled to finish AND it's not an internal trigger (redirect or retry),
-    // then new URLs should not be added by external calls.
+    urlString = stripFragment(urlString);
+
     if (this._finishedAddingUrls && !isInternalTrigger) {
       console.warn(
         `Cannot add URL ${urlString}. LinkManager has been signaled to finish.`
       );
       if (this.checkedUrls.has(urlString)) {
-        const result = this.checkedUrls.get(urlString);
-        return { type: "resolved", url: urlString, ...result };
+        return { type: "resolved", url: urlString, ...this.checkedUrls.get(urlString) };
       }
-      return {
-        type: "error",
-        url: urlString,
-        message: "Manager is finishing.",
-      };
+      return { type: "error", url: urlString, message: "Manager is finishing." };
     }
 
     if (this.checkedUrls.has(urlString)) {
-      const result = this.checkedUrls.get(urlString);
-      return { type: "resolved", url: urlString, ...result };
+      return { type: "resolved", url: urlString, ...this.checkedUrls.get(urlString) };
     }
-
     if (this.activeRequests.has(urlString)) {
       return { type: "active", url: urlString };
     }
-
-    // Check if it's already in pending queue (important for retries to avoid duplicates)
-    if (this.pendingQueue.includes(urlString)) {
+    if (this._pendingSet.has(urlString) || this._retrySet.has(urlString)) {
       return { type: "pending", url: urlString };
     }
 
     this.pendingQueue.push(urlString);
-    this._processQueue(); // Attempt to start processing immediately
+    this._pendingSet.add(urlString);
+    this._processQueue();
     return { type: "pending", url: urlString };
   }
 
   /**
-   * Internal method to manage the active and pending queues.
-   * It moves URLs from the pending queue to the active queue up to maxActiveRequests limit,
-   * respecting per-host concurrency.
-   * Also checks if all processing is complete to resolve the completion promise.
+   * Returns the cached result for a URL, stripping its fragment first.
+   * Use this instead of checkedUrls.get(url) so that fragment URLs resolve correctly.
+   *
+   * @param {string} urlString
+   * @returns {{ statusCode?: number, statusMessage?: string, error?: Error, redirectUrl?: string } | undefined}
+   */
+  getResult(urlString) {
+    return this.checkedUrls.get(stripFragment(urlString));
+  }
+
+  /**
+   * Pulls work from pendingQueue (priority) then retryQueue and starts HTTP
+   * requests, respecting global and per-host concurrency limits.
    * @private
    */
   _processQueue() {
-    // Iterate through the pending queue to find suitable URLs
-    for (let i = 0; i < this.pendingQueue.length; i++) {
-      // Stop if global concurrency limit is reached
-      if (this.activeRequests.size >= this.maxActiveRequests) {
-        break;
-      }
+    if (this._aborted) return;
 
-      const urlToProcess = this.pendingQueue[i];
-      let hostname;
-      try {
-        hostname = new URL(urlToProcess).hostname;
-      } catch (e) {
-        // Handle malformed URLs that might be in the queue
-        console.error(
-          `Malformed URL in pending queue, skipping: ${urlToProcess} - ${e.message}`
-        );
-        this.checkedUrls.set(urlToProcess, {
-          error: new Error(`Malformed URL: ${e.message}`),
-        });
-        this.pendingQueue.splice(i, 1); // Remove it
-        i--; // Adjust index due to removal
-        continue;
-      }
+    // Two passes: pendingQueue first, retryQueue only when pendingQueue is empty.
+    outer: for (const [queue, set, isRetry] of [
+      [this.pendingQueue, this._pendingSet, false],
+      [this.retryQueue, this._retrySet, true],
+    ]) {
+      if (isRetry && this.pendingQueue.length > 0) break;
 
-      // Check if this hostname already has an active request
-      if (this._activeHostnames.has(hostname)) {
-        // This host is currently busy, skip this URL for now.
-        // It remains in the pendingQueue and will be re-evaluated in future _processQueue calls.
-        continue;
-      }
+      for (let i = 0; i < queue.length; i++) {
+        if (this.activeRequests.size >= this.maxActiveRequests) break outer;
 
-      // If we reach here, we found a suitable URL:
-      // 1. Remove it from the pending queue
-      this.pendingQueue.splice(i, 1);
-      i--; // Decrement index because we removed an element and the next element shifts to current position
+        const entry = queue[i];
+        const urlToProcess = isRetry ? entry.url : entry;
 
-      // 2. Add its hostname to the set of active hostnames
-      this._activeHostnames.add(hostname);
+        // Retry entries whose backoff hasn't elapsed yet are skipped.
+        // The entry's `ready` flag is set to true by the scheduled setTimeout,
+        // guaranteeing the delay has actually elapsed before we dispatch.
+        if (isRetry && !entry.ready) continue;
 
-      // 3. Add the URL to the active requests map
-      // Start the HEAD request. The returned promise now resolves with { statusCode, statusMessage, redirectUrl }
-      const requestPromise = this.headRequestFunction(urlToProcess, 8000)
-        .then((result) => {
-          // Handle 429 Too Many Requests errors with exponential backoff
-          if (result.statusCode === 429) {
-            const currentRetries = this._retryAttempts.get(urlToProcess) || 0;
-            if (currentRetries < this._maxRetries) {
-              const delay =
-                this._baseRetryDelayMs * Math.pow(2, currentRetries); // Exponential backoff
-              this._retryAttempts.set(urlToProcess, currentRetries + 1);
+        let hostname;
+        try {
+          hostname = new URL(urlToProcess).hostname;
+        } catch (e) {
+          console.error(
+            `Malformed URL in queue, skipping: ${urlToProcess} - ${e.message}`
+          );
+          this.checkedUrls.set(urlToProcess, {
+            error: new Error(`Malformed URL: ${e.message}`),
+          });
+          queue.splice(i, 1);
+          set.delete(urlToProcess);
+          i--;
+          continue;
+        }
 
-              /*
-              console.warn(
-                `  ${urlToProcess}: Received 429. Retrying in ${delay}ms (attempt ${
-                  currentRetries + 1
-                }/${this._maxRetries}).`
-              );
-              */
+        const hostCount = this._activeHostCounts.get(hostname) ?? 0;
+        if (hostCount >= this.maxPerHostRequests) continue;
 
-              // Re-add to pending queue after delay.
-              // Increment before scheduling so the completion check knows a retry is in flight.
-              this._pendingRetryCount++;
-              setTimeout(() => {
-                this._pendingRetryCount--;
-                this.checkURL(urlToProcess, true);
-              }, delay);
+        // Claim this URL.
+        queue.splice(i, 1);
+        set.delete(urlToProcess);
+        i--;
+
+        this._activeHostCounts.set(hostname, hostCount + 1);
+
+        const requestPromise = this.headRequestFunction(urlToProcess, 8000)
+          .then((result) => {
+            if (result.statusCode === 429) {
+              const currentRetries = this._retryAttempts.get(urlToProcess) ?? 0;
+              if (currentRetries < this._maxRetries) {
+                const backoffMs =
+                  this._baseRetryDelayMs * Math.pow(2, currentRetries);
+                const delay = Math.max(backoffMs, result.retryAfterMs ?? 0);
+                this._retryAttempts.set(urlToProcess, currentRetries + 1);
+
+                // Place in retryQueue immediately so the completion check sees it.
+                // The entry starts with ready=false; the setTimeout below sets
+                // ready=true, guaranteeing the delay has elapsed before dispatch.
+                const retryEntry = { url: urlToProcess, ready: false };
+                this.retryQueue.push(retryEntry);
+                this._retrySet.add(urlToProcess);
+
+                // Wake up _processQueue once the backoff expires.
+                setTimeout(() => { retryEntry.ready = true; this._processQueue(); }, delay);
+              } else {
+                this.checkedUrls.set(urlToProcess, {
+                  statusCode: result.statusCode,
+                  statusMessage: result.statusMessage,
+                  error: new Error("Too many retries for 429 status code"),
+                });
+              }
             } else {
-              // Max retries reached, store as a final error
-              const error = new Error(`Too many retries for 429 status code`);
               this.checkedUrls.set(urlToProcess, {
                 statusCode: result.statusCode,
                 statusMessage: result.statusMessage,
-                error: error,
+                redirectUrl: result.redirectUrl,
               });
+              this._retryAttempts.delete(urlToProcess);
+              if (result.redirectUrl) {
+                this.checkURL(result.redirectUrl, true);
+              }
             }
-          } else {
-            // Not a 429, store the result normally
-            this.checkedUrls.set(urlToProcess, {
-              statusCode: result.statusCode,
-              statusMessage: result.statusMessage,
-              redirectUrl: result.redirectUrl, // Store the redirect URL if present
-            });
-            this._retryAttempts.delete(urlToProcess); // Clean up retry attempts if successful
-
-            // If it's a redirect, add the redirected URL back to be processed
-            if (result.redirectUrl) {
-              /*
-              console.log(
-                `  ${urlToProcess} redirected to: ${result.redirectUrl}`
-              );
-              */
-
-              // IMPORTANT: Pass true for isInternalTrigger to allow adding even after finish()
-              this.checkURL(result.redirectUrl, true);
+          })
+          .catch((error) => {
+            this.checkedUrls.set(urlToProcess, { error });
+            this._retryAttempts.delete(urlToProcess);
+          })
+          .finally(() => {
+            this.activeRequests.delete(urlToProcess);
+            const newCount = (this._activeHostCounts.get(hostname) ?? 1) - 1;
+            if (newCount <= 0) {
+              this._activeHostCounts.delete(hostname);
+            } else {
+              this._activeHostCounts.set(hostname, newCount);
             }
-          }
-        })
-        .catch((error) => {
-          this.checkedUrls.set(urlToProcess, { error: error });
-          this._retryAttempts.delete(urlToProcess); // Clean up retry attempts on other errors
-        })
-        .finally(() => {
-          // Request completed (success or failure/timeout/429-max-retries)
-          this.activeRequests.delete(urlToProcess); // Remove URL from active requests map
-          this._activeHostnames.delete(hostname); // Free up the hostname for new requests
 
-          // Important: Recurse to process more from the pending queue
-          // This handles cases where _processQueue exited because all pending hosts were busy
-          let totalSize =
-            this.checkedUrls.size +
-            this.pendingQueue.length +
-            this.activeRequests.size;
-          if (totalSize % 10 === 0) {
-            //
             updateConsoleLine(
-              `checked: ${this.checkedUrls.size}, pendingQueue: ${this.pendingQueue.length}, activeRequests: ${this.activeRequests.size}`
+              `checked: ${this.checkedUrls.size}  active: ${this.activeRequests.size}  queued: ${this.pendingQueue.length + this.retryQueue.length}`
             );
-          }
 
-          //console.log(            `checked: ${this.checkedUrls.size}, pendingQueue: ${this.pendingQueue.length}, activeRequests: ${this.activeRequests.size}`          );
-          this._processQueue();
-        });
+            if (!this._aborted) this._processQueue();
+          });
 
-      this.activeRequests.set(urlToProcess, requestPromise);
+        this.activeRequests.set(urlToProcess, requestPromise);
+      }
     }
 
-    // Check if everything is done if finish() has been called.
-    // _pendingRetryCount guards against resolving while a 429 retry setTimeout is in flight.
+    // Resolve when all queues and in-flight requests are drained.
     if (
       this._finishedAddingUrls &&
       this.pendingQueue.length === 0 &&
-      this.activeRequests.size === 0 &&
-      this._pendingRetryCount === 0
+      this.retryQueue.length === 0 &&
+      this.activeRequests.size === 0
     ) {
       this._resolveCompletionPromise();
     }
   }
 
-  /**
-   * Signals that no more URLs will be added to the LinkManager.
-   * This allows the manager to know when it can consider all processing complete.
-   */
+  /** Signals that no more external URLs will be added. */
   finish() {
     this._finishedAddingUrls = true;
     this._processQueue();
   }
 
   /**
-   * Returns a Promise that resolves when all pending and active requests are complete,
-   * and the `finish()` method has been called.
-   * @returns {Promise<void>}
+   * Stops processing immediately and resolves onComplete() with whatever
+   * results have been collected so far.  In-flight requests complete silently
+   * but their results are not used.  No new requests are started after abort().
    */
+  abort() {
+    this._aborted = true;
+    this._resolveCompletionPromise();
+  }
+
+  /** @returns {Promise<void>} Resolves when all URLs are checked (or after abort()). */
   async onComplete() {
     return this._completionPromise;
   }
 
-  /**
-   * Returns the current size of the pending queue.
-   * @returns {number}
-   */
-  getPendingCount() {
-    return this.pendingQueue.length;
-  }
-
-  /**
-   * Returns the current size of the active requests queue.
-   * @returns {number}
-   */
-  getActiveCount() {
-    return this.activeRequests.size;
-  }
-
-  /**
-   * Returns the current size of the checked URLs dictionary.
-   * @returns {number}
-   */
-  getCheckedCount() {
-    return this.checkedUrls.size;
-  }
+  getPendingCount() { return this.pendingQueue.length; }
+  getRetryCount()   { return this.retryQueue.length; }
+  getActiveCount()  { return this.activeRequests.size; }
+  getCheckedCount() { return this.checkedUrls.size; }
 }
 
 function updateConsoleLine(message) {
-  // Update the console line with the current status on same line
   process.stdout.write("\r" + message + "          ");
 }
 
-// Add all external links to the link manager.
-// That async gets the status of any URL passed.
-// But if doesn't refetch if already fetched or fetching
+/**
+ * Queues all external links from results into manager, then waits for
+ * completion.  If stdin is a TTY, pressing X stops checking early and
+ * continues with partial results; Ctrl+C quits entirely.
+ *
+ * @param {Array} results
+ * @param {LinkManager} manager
+ */
 async function checkExternalUrlLinks(results, manager) {
-  logFunction(`Function: checkExternalUrlLinks()`);
+  logFunction("Function: checkExternalUrlLinks()");
   results.forEach((page) => {
     page.urlLinks.forEach((link) => {
       manager.checkURL(link.url);
     });
   });
 
-  manager.finish(); // Signal that no more URLs will be added
-  await manager.onComplete();
+  manager.finish();
+
+  if (process.stdin.isTTY) {
+    readline.emitKeypressEvents(process.stdin);
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdout.write(
+      "\n  [X] Stop external link checking and continue with partial results   [Ctrl+C] Quit\n"
+    );
+
+    const onKeypress = (_str, key) => {
+      if (!key) return;
+      if (key.name === "x" || key.name === "X") {
+        process.stdout.write(
+          "\n  External link checking stopped. Continuing with partial results...\n"
+        );
+        manager.abort();
+      } else if (key.ctrl && key.name === "c") {
+        process.exit(1);
+      }
+    };
+
+    process.stdin.on("keypress", onKeypress);
+    await manager.onComplete();
+    process.stdin.removeListener("keypress", onKeypress);
+    process.stdin.setRawMode(false);
+    process.stdin.pause();
+  } else {
+    await manager.onComplete();
+  }
 }
 
+/**
+ * Main entry point for external link checking.
+ * Accepts an optional LinkManager for testing; creates a default one otherwise.
+ *
+ * @param {Array} results
+ * @param {LinkManager|null} [manager=null]
+ * @returns {Promise<Array>} Array of ExternalLinkError / ExternalLinkWarning instances.
+ */
 async function processExternalUrlLinks(results, manager = null) {
   if (!manager) {
     manager = new LinkManager(getHeadRequestStatusCode, 10);
   }
-  logFunction(`Function: processExternalUrlLinks()`);
-  await checkExternalUrlLinks(results, manager); // Wait for all links to be checked
-  logFunction(`Function FINISHED AWAITING: processExternalUrlLinks()`);
-  // Now we can process the results and create errors for any links that failed.
+  logFunction("Function: processExternalUrlLinks()");
+  await checkExternalUrlLinks(results, manager);
+  logFunction("Function FINISHED AWAITING: processExternalUrlLinks()");
+
   const errors = [];
-  results.forEach((page, index, array) => {
-    page.urlLinks.forEach((link, index, array) => {
-      const urlResult = manager.checkedUrls.get(link.url);
-      //console.log(urlResult);
+  results.forEach((page) => {
+    page.urlLinks.forEach((link) => {
+      // getResult() strips the fragment before looking up, so
+      // https://host/page#section resolves to the cached https://host/page result.
+      const urlResult = manager.getResult(link.url);
       if (urlResult) {
         if (urlResult.statusCode === 200) {
-          // Link is good. Do nothing.
+          // Link is good — do nothing.
         } else if (
           urlResult.statusCode === 302 ||
           urlResult.statusCode === 303 ||
           urlResult.statusCode === 307
         ) {
-          const warning = new ExternalLinkWarning({
-            file: link.page,
-            link: link,
-            statusCode: urlResult.statusCode,
-            statusMessage: urlResult.statusMessage,
-            error: urlResult.error,
-          });
-          errors.push(warning);
+          errors.push(
+            new ExternalLinkWarning({
+              file: link.page,
+              link,
+              statusCode: urlResult.statusCode,
+              statusMessage: urlResult.statusMessage,
+              error: urlResult.error,
+            })
+          );
         } else {
-          // Link is not valid, so we can create an error object.
-          const error = new ExternalLinkError({
-            file: link.page,
-            link: link,
-            statusCode: urlResult.statusCode,
-            statusMessage: urlResult.statusMessage,
-            error: urlResult.error,
-          });
-          errors.push(error);
-          //error.output();
+          errors.push(
+            new ExternalLinkError({
+              file: link.page,
+              link,
+              statusCode: urlResult.statusCode,
+              statusMessage: urlResult.statusMessage,
+              error: urlResult.error,
+            })
+          );
         }
       }
-
-      // Here we should have all our links checked, so we can start processing them.
     });
-
-    //console.log(urlResultLookup);
   });
   return errors;
 }
 
-export { processExternalUrlLinks, LinkManager };
+export { processExternalUrlLinks, LinkManager, stripFragment };
 
-/* Format of a result of an external link.
+/* Format of a result object on page.urlLinks:
       {
         "address": "https://github.com/PX4/PX4-Autopilot/blob/main/src/drivers/gps/gps.cpp",
         "anchor": "L1023",
@@ -559,6 +478,5 @@ export { processExternalUrlLinks, LinkManager };
         "title": "",
         "refName": "",
         "refMatch": ""
-      },
-
-      */
+      }
+*/

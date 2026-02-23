@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import {
   LinkManager,
   processExternalUrlLinks,
+  stripFragment,
 } from "../../src/process_external_url_links.js";
 
 // ─── Mock helpers ────────────────────────────────────────────────────────────
@@ -65,6 +66,35 @@ function makeResults(links) {
   return [{ urlLinks: links }];
 }
 
+// ─── stripFragment() ──────────────────────────────────────────────────────────
+
+describe("stripFragment()", () => {
+  test("removes the fragment from a URL", () => {
+    assert.equal(
+      stripFragment("https://example.com/page#heading"),
+      "https://example.com/page"
+    );
+  });
+
+  test("returns the URL unchanged when there is no fragment", () => {
+    assert.equal(
+      stripFragment("https://example.com/page"),
+      "https://example.com/page"
+    );
+  });
+
+  test("handles an empty fragment (#)", () => {
+    assert.equal(
+      stripFragment("https://example.com/page#"),
+      "https://example.com/page"
+    );
+  });
+
+  test("returns malformed URLs unchanged (no crash)", () => {
+    assert.equal(stripFragment("not-a-url"), "not-a-url");
+  });
+});
+
 // ─── LinkManager: checkURL() ──────────────────────────────────────────────────
 
 describe("LinkManager.checkURL()", () => {
@@ -90,7 +120,6 @@ describe("LinkManager.checkURL()", () => {
   });
 
   test("returns 'active' while a request is in-flight", () => {
-    // Use a never-resolving mock so the request stays active throughout the test.
     const neverResolves = () => new Promise(() => {});
     const mgr = new LinkManager(neverResolves, 10);
     mgr.checkURL("https://example.com/slow");
@@ -125,9 +154,7 @@ describe("LinkManager.checkURL()", () => {
 
     let warnCalled = false;
     const origWarn = console.warn;
-    console.warn = () => {
-      warnCalled = true;
-    };
+    console.warn = () => { warnCalled = true; };
     mgr.checkURL("https://example.com/too-late");
     console.warn = origWarn;
 
@@ -141,7 +168,7 @@ describe("LinkManager.checkURL()", () => {
     await mgr.onComplete();
 
     const origWarn = console.warn;
-    console.warn = () => {}; // suppress expected "manager is finishing" warning
+    console.warn = () => {};
     const result = mgr.checkURL("https://example.com/page");
     console.warn = origWarn;
 
@@ -150,37 +177,107 @@ describe("LinkManager.checkURL()", () => {
   });
 });
 
+// ─── LinkManager: URL fragment stripping ─────────────────────────────────────
+
+describe("LinkManager: URL fragment stripping", () => {
+  test("two URLs differing only by fragment → single HTTP request", async () => {
+    const counter = mockCounter(200);
+    const mgr = new LinkManager(counter, 10);
+    mgr.checkURL("https://example.com/page#section-1");
+    mgr.checkURL("https://example.com/page#section-2");
+    mgr.finish();
+    await mgr.onComplete();
+
+    assert.equal(counter.callCount(), 1, "should make only one request for the same page");
+  });
+
+  test("URL with fragment is stored without fragment in checkedUrls", async () => {
+    const mgr = new LinkManager(mockResolve(200), 10);
+    mgr.checkURL("https://example.com/page#heading");
+    mgr.finish();
+    await mgr.onComplete();
+
+    assert.ok(
+      mgr.checkedUrls.has("https://example.com/page"),
+      "should be stored under the fragment-free URL"
+    );
+    assert.ok(
+      !mgr.checkedUrls.has("https://example.com/page#heading"),
+      "should NOT be stored under the original fragment URL"
+    );
+  });
+
+  test("getResult() resolves a URL that has a fragment", async () => {
+    const mgr = new LinkManager(mockResolve(200), 10);
+    mgr.checkURL("https://example.com/page");
+    mgr.finish();
+    await mgr.onComplete();
+
+    const result = mgr.getResult("https://example.com/page#heading");
+    assert.ok(result, "getResult() should find the cached result via fragment stripping");
+    assert.equal(result.statusCode, 200);
+  });
+});
+
 // ─── LinkManager: per-host concurrency ───────────────────────────────────────
 
 describe("LinkManager: per-host concurrency", () => {
-  test("only one request at a time per hostname", async () => {
+  test("respects maxPerHostRequests for the same hostname", async () => {
+    const LIMIT = 1;
     let maxConcurrentForHost = 0;
     let currentConcurrentForHost = 0;
 
     const mockFn = async (url) => {
       if (new URL(url).hostname === "example.com") {
         currentConcurrentForHost++;
-        maxConcurrentForHost = Math.max(
-          maxConcurrentForHost,
-          currentConcurrentForHost
-        );
+        maxConcurrentForHost = Math.max(maxConcurrentForHost, currentConcurrentForHost);
         await new Promise((r) => setTimeout(r, 20));
         currentConcurrentForHost--;
       }
       return { statusCode: 200, statusMessage: "OK" };
     };
 
-    const mgr = new LinkManager(mockFn, 10); // global limit: 10
+    const mgr = new LinkManager(mockFn, 10);
+    mgr.maxPerHostRequests = LIMIT;
     mgr.checkURL("https://example.com/1");
     mgr.checkURL("https://example.com/2");
     mgr.checkURL("https://example.com/3");
     mgr.finish();
     await mgr.onComplete();
 
-    assert.equal(
-      maxConcurrentForHost,
-      1,
-      "no more than 1 concurrent request should be in flight per hostname"
+    assert.ok(
+      maxConcurrentForHost <= LIMIT,
+      `expected <= ${LIMIT} concurrent per host, got ${maxConcurrentForHost}`
+    );
+  });
+
+  test("allows up to maxPerHostRequests concurrent requests for the same hostname", async () => {
+    const LIMIT = 2;
+    let maxConcurrentForHost = 0;
+    let currentConcurrentForHost = 0;
+
+    const mockFn = async (url) => {
+      if (new URL(url).hostname === "example.com") {
+        currentConcurrentForHost++;
+        maxConcurrentForHost = Math.max(maxConcurrentForHost, currentConcurrentForHost);
+        await new Promise((r) => setTimeout(r, 20));
+        currentConcurrentForHost--;
+      }
+      return { statusCode: 200, statusMessage: "OK" };
+    };
+
+    const mgr = new LinkManager(mockFn, 10);
+    mgr.maxPerHostRequests = LIMIT;
+    // Queue 3 URLs to the same host; we expect 2 to run concurrently.
+    mgr.checkURL("https://example.com/1");
+    mgr.checkURL("https://example.com/2");
+    mgr.checkURL("https://example.com/3");
+    mgr.finish();
+    await mgr.onComplete();
+
+    assert.ok(
+      maxConcurrentForHost > 1,
+      `expected > 1 concurrent per host with LIMIT=${LIMIT}, got ${maxConcurrentForHost}`
     );
   });
 
@@ -228,7 +325,7 @@ describe("LinkManager: global concurrency limit", () => {
 
     const mgr = new LinkManager(mockFn, MAX);
     for (let i = 0; i < 10; i++) {
-      mgr.checkURL(`https://site${i}.com/page`); // different hostnames
+      mgr.checkURL(`https://site${i}.com/page`);
     }
     mgr.finish();
     await mgr.onComplete();
@@ -251,10 +348,10 @@ describe("LinkManager: 429 Too Many Requests retry", () => {
     };
 
     const mgr = new LinkManager(mockFn, 10);
-    mgr._baseRetryDelayMs = 1; // speed up retries
+    mgr._baseRetryDelayMs = 1;
     mgr.checkURL("https://example.com/rate-limited");
     mgr.finish();
-    await mgr.onComplete(); // resolves only after all retries complete
+    await mgr.onComplete();
 
     // 1 initial + 3 retries = 4 calls total
     assert.equal(callCount, 4, "expected 4 total attempts (1 initial + 3 retries)");
@@ -298,6 +395,125 @@ describe("LinkManager: 429 Too Many Requests retry", () => {
     assert.equal(result.statusCode, 200);
     assert.equal(callCount, 2);
   });
+
+  test("Retry-After header value overrides exponential backoff when larger", async () => {
+    const RETRY_AFTER_MS = 60;
+    let firstCallTime;
+    let secondCallTime;
+    let callCount = 0;
+
+    const mockFn = async () => {
+      callCount++;
+      if (callCount === 1) {
+        firstCallTime = Date.now();
+        return {
+          statusCode: 429,
+          statusMessage: "Too Many Requests",
+          retryAfterMs: RETRY_AFTER_MS,
+        };
+      }
+      secondCallTime = Date.now();
+      return { statusCode: 200, statusMessage: "OK" };
+    };
+
+    const mgr = new LinkManager(mockFn, 10);
+    mgr._baseRetryDelayMs = 1; // exponential backoff = 1ms, far less than Retry-After
+    mgr.checkURL("https://example.com/retry-after");
+    mgr.finish();
+    await mgr.onComplete();
+
+    const elapsed = secondCallTime - firstCallTime;
+    assert.ok(
+      elapsed >= RETRY_AFTER_MS - 10, // 10ms tolerance for timer imprecision
+      `retry should wait at least ${RETRY_AFTER_MS}ms (Retry-After), got ${elapsed}ms`
+    );
+  });
+});
+
+// ─── LinkManager: retry queue ordering ───────────────────────────────────────
+
+describe("LinkManager: retry queue", () => {
+  test("retries are deferred until the initial pendingQueue is drained", async () => {
+    // Force serial execution (concurrency=1) so we can assert request order.
+    const startOrder = [];
+    let callCount = {};
+
+    const mockFn = async (url) => {
+      startOrder.push(url);
+      callCount[url] = (callCount[url] ?? 0) + 1;
+      if (url === "https://a.com/" && callCount[url] === 1) {
+        return { statusCode: 429, statusMessage: "Too Many Requests" };
+      }
+      return { statusCode: 200, statusMessage: "OK" };
+    };
+
+    const mgr = new LinkManager(mockFn, 1); // serial
+    mgr._baseRetryDelayMs = 1;
+    mgr.checkURL("https://a.com/"); // starts first (429 → goes to retryQueue)
+    mgr.checkURL("https://b.com/"); // waits in pendingQueue
+    mgr.finish();
+    await mgr.onComplete();
+
+    // Expected: a (429), b (200), a-retry (200)
+    assert.deepEqual(startOrder, [
+      "https://a.com/",
+      "https://b.com/",
+      "https://a.com/",
+    ]);
+  });
+
+  test("getRetryCount() is 0 after all processing is complete", async () => {
+    let callCount = 0;
+    const mockFn = async () => {
+      callCount++;
+      if (callCount === 1)
+        return { statusCode: 429, statusMessage: "Too Many Requests" };
+      return { statusCode: 200, statusMessage: "OK" };
+    };
+
+    const mgr = new LinkManager(mockFn, 10);
+    mgr._baseRetryDelayMs = 1;
+    mgr.checkURL("https://example.com/retry");
+    mgr.finish();
+    await mgr.onComplete();
+
+    assert.equal(mgr.getRetryCount(), 0);
+  });
+});
+
+// ─── LinkManager: abort() ────────────────────────────────────────────────────
+
+describe("LinkManager: abort()", () => {
+  test("abort() resolves onComplete() immediately even with requests in flight", async () => {
+    const neverResolves = () => new Promise(() => {});
+    const mgr = new LinkManager(neverResolves, 10);
+    mgr.checkURL("https://a.com/");
+    mgr.finish();
+
+    // Abort after a short delay; onComplete should return without the request completing.
+    setTimeout(() => mgr.abort(), 5);
+    await mgr.onComplete(); // would hang forever without abort()
+
+    assert.equal(mgr.getCheckedCount(), 0, "request never completed, nothing should be checked");
+  });
+
+  test("abort() prevents new requests from starting", async () => {
+    let requestCount = 0;
+    const mockFn = async () => {
+      requestCount++;
+      return { statusCode: 200, statusMessage: "OK" };
+    };
+
+    // concurrency=0 means nothing starts on checkURL, so we can abort first.
+    const mgr = new LinkManager(mockFn, 0);
+    mgr.checkURL("https://a.com/");
+    mgr.checkURL("https://b.com/");
+    mgr.abort();  // abort with items still in pendingQueue
+    mgr.finish();
+    await mgr.onComplete();
+
+    assert.equal(requestCount, 0, "no requests should start after abort()");
+  });
 });
 
 // ─── LinkManager: redirect handling ──────────────────────────────────────────
@@ -322,14 +538,8 @@ describe("LinkManager: redirect handling", () => {
     mgr.finish();
     await mgr.onComplete();
 
-    assert.ok(
-      checked.includes("https://old.com/page"),
-      "original URL should be checked"
-    );
-    assert.ok(
-      checked.includes("https://new.com/page"),
-      "redirect target URL should be checked"
-    );
+    assert.ok(checked.includes("https://old.com/page"), "original URL should be checked");
+    assert.ok(checked.includes("https://new.com/page"), "redirect target URL should be checked");
   });
 
   test("redirect URL is stored in checkedUrls entry for the original URL", async () => {
@@ -356,11 +566,7 @@ describe("LinkManager: redirect handling", () => {
   test("redirect target added after finish() still completes (internal trigger)", async () => {
     const mockFn = async (url) => {
       if (url === "https://a.com/") {
-        return {
-          statusCode: 302,
-          statusMessage: "Found",
-          redirectUrl: "https://b.com/",
-        };
+        return { statusCode: 302, statusMessage: "Found", redirectUrl: "https://b.com/" };
       }
       return { statusCode: 200, statusMessage: "OK" };
     };
@@ -378,7 +584,7 @@ describe("LinkManager: redirect handling", () => {
   });
 });
 
-// ─── LinkManager: network errors ─────────────────────────────────────────────
+// ─── LinkManager: network/request errors ─────────────────────────────────────
 
 describe("LinkManager: network/request errors", () => {
   test("network error is stored in checkedUrls", async () => {
@@ -417,19 +623,19 @@ describe("LinkManager: network/request errors", () => {
   });
 });
 
-// ─── LinkManager: counters ────────────────────────────────────────────────────
+// ─── LinkManager: counter methods ────────────────────────────────────────────
 
 describe("LinkManager: counter methods", () => {
-  test("getPendingCount / getActiveCount / getCheckedCount reflect state", async () => {
+  test("getPendingCount / getRetryCount / getActiveCount / getCheckedCount reflect state", async () => {
     const mgr = new LinkManager(mockSlow(200, 30), 10);
 
     assert.equal(mgr.getPendingCount(), 0);
+    assert.equal(mgr.getRetryCount(), 0);
     assert.equal(mgr.getActiveCount(), 0);
     assert.equal(mgr.getCheckedCount(), 0);
 
     mgr.checkURL("https://example.com/1");
 
-    // Request should have moved straight to active (concurrency allows it)
     assert.equal(mgr.getActiveCount(), 1);
     assert.equal(mgr.getPendingCount(), 0);
 
@@ -438,6 +644,7 @@ describe("LinkManager: counter methods", () => {
 
     assert.equal(mgr.getCheckedCount(), 1);
     assert.equal(mgr.getPendingCount(), 0);
+    assert.equal(mgr.getRetryCount(), 0);
     assert.equal(mgr.getActiveCount(), 0);
   });
 
@@ -453,13 +660,13 @@ describe("LinkManager: counter methods", () => {
   });
 });
 
-// ─── LinkManager: onComplete() / finish() ────────────────────────────────────
+// ─── LinkManager: finish() and onComplete() ───────────────────────────────────
 
 describe("LinkManager: finish() and onComplete()", () => {
   test("onComplete() resolves immediately when finish() is called on an empty manager", async () => {
     const mgr = new LinkManager(mockResolve(200), 10);
     mgr.finish();
-    await mgr.onComplete(); // should not hang
+    await mgr.onComplete();
     assert.equal(mgr.getCheckedCount(), 0);
   });
 
@@ -468,11 +675,8 @@ describe("LinkManager: finish() and onComplete()", () => {
     const mgr = new LinkManager(mockSlow(200, 40), 10);
     mgr.checkURL("https://example.com/slow");
 
-    const donePromise = mgr.onComplete().then(() => {
-      completed = true;
-    });
+    const donePromise = mgr.onComplete().then(() => { completed = true; });
 
-    // Not done yet (request still in flight)
     assert.equal(completed, false);
 
     mgr.finish();
@@ -494,8 +698,6 @@ describe("LinkManager: finish() and onComplete()", () => {
 });
 
 // ─── LinkManager: status code storage ────────────────────────────────────────
-// These tests verify what checkedUrls stores for each status code scenario,
-// which drives the error classification in processExternalUrlLinks().
 
 describe("LinkManager: status code storage", () => {
   for (const code of [200, 301, 302, 303, 307, 400, 403, 404, 410, 500]) {
@@ -544,7 +746,6 @@ describe("processExternalUrlLinks(): error classification", () => {
   });
 
   test("301 Moved Permanently → ExternalLinkError (not a warning)", async () => {
-    // Only 302/303/307 are warnings; 301 falls through to error.
     const mgr = new LinkManager(mockResolve(301, "Moved Permanently"), 10);
     const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/301")]), mgr);
     assert.equal(errors.length, 1);
@@ -621,6 +822,19 @@ describe("processExternalUrlLinks(): error classification", () => {
     const errors = await processExternalUrlLinks(results, mgr);
 
     assert.equal(counter.callCount(), 1, "duplicate URL should only be fetched once");
+    assert.equal(errors.length, 0);
+  });
+
+  test("two links to same page but different fragments → single HTTP request, no errors", async () => {
+    const counter = mockCounter(200);
+    const links = [
+      makeLink("https://example.com/page#section-1"),
+      makeLink("https://example.com/page#section-2"),
+    ];
+    const mgr = new LinkManager(counter, 10);
+    const errors = await processExternalUrlLinks(makeResults(links), mgr);
+
+    assert.equal(counter.callCount(), 1, "fragment URLs should share a single HTTP request");
     assert.equal(errors.length, 0);
   });
 
