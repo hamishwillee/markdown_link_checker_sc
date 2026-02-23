@@ -135,7 +135,7 @@ class LinkManager {
     this.activeRequests = new Map();        // url -> Promise
     this._activeHostCounts = new Map();     // hostname -> active request count
     this.maxActiveRequests = maxConcurrent;
-    this.maxPerHostRequests = 2;            // concurrent requests allowed per hostname
+    this.maxPerHostRequests = 5;            // concurrent requests allowed per hostname
 
     this.headRequestFunction = headRequestFunction;
     this._finishedAddingUrls = false;
@@ -301,11 +301,12 @@ class LinkManager {
               this._activeHostCounts.set(hostname, newCount);
             }
 
-            updateConsoleLine(
-              `checked: ${this.checkedUrls.size}  active: ${this.activeRequests.size}  queued: ${this.pendingQueue.length + this.retryQueue.length}`
-            );
-
-            if (!this._aborted) this._processQueue();
+            if (!this._aborted) {
+              this._processQueue();
+              updateConsoleLine(
+                `checked: ${this.checkedUrls.size}  active: ${this.activeRequests.size}  queued: ${this.pendingQueue.length + this.retryQueue.length}`
+              );
+            }
           });
 
         this.activeRequests.set(urlToProcess, requestPromise);
@@ -351,7 +352,9 @@ class LinkManager {
 }
 
 function updateConsoleLine(message) {
-  process.stdout.write("\r" + message + "          ");
+  if (process.stdout.isTTY) {
+    process.stdout.write("\r" + message + "          ");
+  }
 }
 
 /**
@@ -377,18 +380,16 @@ async function checkExternalUrlLinks(results, manager) {
     process.stdin.setRawMode(true);
     process.stdin.resume();
     process.stdout.write(
-      "\n  [X] Stop external link checking and continue with partial results   [Ctrl+C] Quit\n"
+      "\n  [X] or [Ctrl+C] Stop external link checking and continue with partial results\n"
     );
 
     const onKeypress = (_str, key) => {
       if (!key) return;
-      if (key.name === "x" || key.name === "X") {
-        process.stdout.write(
+      if (key.name === "x" || key.name === "X" || (key.ctrl && key.name === "c")) {
+        process.stderr.write(
           "\n  External link checking stopped. Continuing with partial results...\n"
         );
         manager.abort();
-      } else if (key.ctrl && key.name === "c") {
-        process.exit(1);
       }
     };
 
