@@ -701,7 +701,7 @@ describe("LinkManager: finish() and onComplete()", () => {
 // ─── LinkManager: status code storage ────────────────────────────────────────
 
 describe("LinkManager: status code storage", () => {
-  for (const code of [200, 301, 302, 303, 307, 400, 403, 404, 410, 500]) {
+  for (const code of [200, 301, 302, 303, 307, 308, 400, 403, 404, 410, 500]) {
     test(`stores statusCode ${code} correctly`, async () => {
       const mgr = new LinkManager(mockResolve(code, `Status ${code}`), 10);
       mgr.checkURL(`https://example.com/${code}`);
@@ -751,6 +751,14 @@ describe("processExternalUrlLinks(): error classification", () => {
     const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/301")]), mgr);
     assert.equal(errors.length, 1);
     assert.equal(errors[0].type, "ExternalLinkError");
+  });
+
+  test("308 Permanent Redirect → ExternalLinkError (not a warning)", async () => {
+    const mgr = new LinkManager(mockResolve(308, "Permanent Redirect"), 10);
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/308")]), mgr);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].type, "ExternalLinkError");
+    assert.equal(errors[0].statusCode, 308);
   });
 
   test("403 Forbidden → ExternalLinkWarning (bot-blocking sites still load in browsers)", async () => {
@@ -881,6 +889,46 @@ describe("processExternalUrlLinks(): error classification", () => {
     errors[0].output();
     console.log = origLog;
 
+    assert.ok(lines[0].includes("FROM: https://example.com/old"), "should include FROM line");
+    assert.ok(lines[0].includes("TO:   https://example.com/new"), "should include TO line");
+  });
+
+  test("302 with redirectUrl → ExternalLinkWarning output() prints FROM/TO lines", async () => {
+    const mgr = new LinkManager(
+      mockResolve(302, "Found", "https://example.com/new"),
+      10
+    );
+    const errors = await processExternalUrlLinks(
+      makeResults([makeLink("https://example.com/old")]),
+      mgr
+    );
+    const lines = [];
+    const origLog = console.log;
+    console.log = (s) => lines.push(s);
+    errors[0].output();
+    console.log = origLog;
+
+    assert.equal(errors[0].type, "ExternalLinkWarning");
+    assert.ok(lines[0].includes("FROM: https://example.com/old"), "should include FROM line");
+    assert.ok(lines[0].includes("TO:   https://example.com/new"), "should include TO line");
+  });
+
+  test("308 with redirectUrl → ExternalLinkError output() prints FROM/TO lines", async () => {
+    const mgr = new LinkManager(
+      mockResolve(308, "Permanent Redirect", "https://example.com/new"),
+      10
+    );
+    const errors = await processExternalUrlLinks(
+      makeResults([makeLink("https://example.com/old")]),
+      mgr
+    );
+    const lines = [];
+    const origLog = console.log;
+    console.log = (s) => lines.push(s);
+    errors[0].output();
+    console.log = origLog;
+
+    assert.equal(errors[0].type, "ExternalLinkError");
     assert.ok(lines[0].includes("FROM: https://example.com/old"), "should include FROM line");
     assert.ok(lines[0].includes("TO:   https://example.com/new"), "should include TO line");
   });

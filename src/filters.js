@@ -47,6 +47,17 @@ function filterIgnoreErrors(errors, options) {
           returnValue = false; // They both have a link and it is the same link
         }
       }
+
+      // URL-only match: ignore entry has no type/file, just a link.url — suppress globally
+      if (
+        !ignorableError.type &&
+        !ignorableError.fileRelativeToRoot &&
+        error.link &&
+        ignorableError.link &&
+        error.link.url === ignorableError.link.url
+      ) {
+        returnValue = false;
+      }
     });
     //if (returnValue ==false) console.log(error);
     return returnValue;
