@@ -12,6 +12,7 @@ import {
   LinkManager,
   processExternalUrlLinks,
   stripFragment,
+  getHeadRequestStatusCode,
 } from "../../src/process_external_url_links.js";
 
 // ─── Mock helpers ────────────────────────────────────────────────────────────
@@ -752,6 +753,14 @@ describe("processExternalUrlLinks(): error classification", () => {
     assert.equal(errors[0].type, "ExternalLinkError");
   });
 
+  test("403 Forbidden → ExternalLinkWarning (bot-blocking sites still load in browsers)", async () => {
+    const mgr = new LinkManager(mockResolve(403, "Forbidden"), 10);
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/blocked")]), mgr);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].type, "ExternalLinkWarning");
+    assert.equal(errors[0].statusCode, 403);
+  });
+
   test("404 Not Found → ExternalLinkError", async () => {
     const mgr = new LinkManager(mockResolve(404, "Not Found"), 10);
     const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/missing")]), mgr);
@@ -842,5 +851,44 @@ describe("processExternalUrlLinks(): error classification", () => {
     const mgr = new LinkManager(mockResolve(200), 10);
     const errors = await processExternalUrlLinks([{ urlLinks: [] }], mgr);
     assert.equal(errors.length, 0);
+  });
+});
+
+// ─── getHeadRequestStatusCode(): HEAD→GET fallback ────────────────────────────
+
+describe("getHeadRequestStatusCode(): HEAD→GET fallback", () => {
+  test("returns HEAD result directly when status is not 403", async () => {
+    const mockReq = async (_url, method) => ({ statusCode: 200, statusMessage: "OK", method });
+    const result = await getHeadRequestStatusCode("https://example.com/", 5000, mockReq);
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.method, "HEAD");
+  });
+
+  test("falls back to GET when HEAD returns 403, and returns the GET result", async () => {
+    const calls = [];
+    const mockReq = async (_url, method) => {
+      calls.push(method);
+      if (method === "HEAD") return { statusCode: 403, statusMessage: "Forbidden" };
+      return { statusCode: 200, statusMessage: "OK" };
+    };
+    const result = await getHeadRequestStatusCode("https://example.com/", 5000, mockReq);
+    assert.deepEqual(calls, ["HEAD", "GET"], "should try HEAD first then GET");
+    assert.equal(result.statusCode, 200);
+  });
+
+  test("returns GET 403 when both HEAD and GET return 403", async () => {
+    const mockReq = async () => ({ statusCode: 403, statusMessage: "Forbidden" });
+    const result = await getHeadRequestStatusCode("https://example.com/", 5000, mockReq);
+    assert.equal(result.statusCode, 403);
+  });
+
+  test("does not fall back to GET for non-403 error codes (e.g. 404)", async () => {
+    const calls = [];
+    const mockReq = async (_url, method) => {
+      calls.push(method);
+      return { statusCode: 404, statusMessage: "Not Found" };
+    };
+    await getHeadRequestStatusCode("https://example.com/", 5000, mockReq);
+    assert.deepEqual(calls, ["HEAD"], "should not retry with GET for non-403 responses");
   });
 });

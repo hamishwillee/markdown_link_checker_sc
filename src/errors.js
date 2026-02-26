@@ -42,7 +42,7 @@ class ExternalLinkError extends LinkError {
     errorText = this.statusCode
       ? `${errorText} ${this.statusCode} (${this.statusMessage})`
       : errorText;
-    errorText = this.error ? `${errorText} ${this.error})` : errorText;
+    errorText = this.error ? `${errorText} (${this.error})` : errorText;
     errorText = `${errorText}\n   ${this.link.url}`;
     //this.link.text
     console.log(errorText);
@@ -61,7 +61,7 @@ class ExternalLinkWarning extends LinkError {
     errorText = this.statusCode
       ? `${errorText} ${this.statusCode} (${this.statusMessage})`
       : errorText;
-    errorText = this.error ? `${errorText} ${this.error})` : errorText;
+    errorText = this.error ? `${errorText} (${this.error})` : errorText;
     errorText = `${errorText}\n   ${this.link.url}`;
     //this.link.text
     console.log(errorText);

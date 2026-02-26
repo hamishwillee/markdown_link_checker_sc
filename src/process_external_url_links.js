@@ -49,6 +49,13 @@ async function makeHttpRequest(urlString, method, timeoutMs = 5000) {
       Accept:
         "text/html, application/xhtml+xml;q=0.9, application/vnd.wap.xhtml+xml;q=0.6, */*;q=0.5",
       "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
+      "Accept-Encoding": "gzip, deflate, br",
+      "Cache-Control": "no-cache",
+      "Upgrade-Insecure-Requests": "1",
+      "Sec-Fetch-Dest": "document",
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Site": "none",
+      "Sec-Fetch-User": "?1",
     },
   };
 
@@ -98,10 +105,10 @@ async function makeHttpRequest(urlString, method, timeoutMs = 5000) {
  * @param {number} [timeoutMs=5000]
  * @returns {Promise<{statusCode: number, statusMessage: string, redirectUrl?: string, retryAfterMs?: number}>}
  */
-async function getHeadRequestStatusCode(urlString, timeoutMs = 5000) {
-  const headResult = await makeHttpRequest(urlString, "HEAD", timeoutMs);
+async function getHeadRequestStatusCode(urlString, timeoutMs = 5000, _makeRequest = makeHttpRequest) {
+  const headResult = await _makeRequest(urlString, "HEAD", timeoutMs);
   if (headResult.statusCode === 403) {
-    return makeHttpRequest(urlString, "GET", timeoutMs);
+    return _makeRequest(urlString, "GET", timeoutMs);
   }
   return headResult;
 }
@@ -431,7 +438,8 @@ async function processExternalUrlLinks(results, manager = null) {
         } else if (
           urlResult.statusCode === 302 ||
           urlResult.statusCode === 303 ||
-          urlResult.statusCode === 307
+          urlResult.statusCode === 307 ||
+          urlResult.statusCode === 403
         ) {
           errors.push(
             new ExternalLinkWarning({
@@ -459,7 +467,7 @@ async function processExternalUrlLinks(results, manager = null) {
   return errors;
 }
 
-export { processExternalUrlLinks, LinkManager, stripFragment };
+export { processExternalUrlLinks, LinkManager, stripFragment, getHeadRequestStatusCode };
 
 /* Format of a result object on page.urlLinks:
       {
