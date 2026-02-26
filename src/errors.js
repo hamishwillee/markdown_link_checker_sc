@@ -31,11 +31,12 @@ class LinkError {
 }
 
 class ExternalLinkError extends LinkError {
-  constructor({ file, link, statusCode, statusMessage, error, docsroot }) {
+  constructor({ file, link, statusCode, statusMessage, error, redirectUrl, docsroot }) {
     super({ file: file, link: link, type: "ExternalLinkError", docsroot }); // call the super class constructor and pass in the param object
     this.statusCode = statusCode; // HTTP status code, if available
     this.statusMessage = statusMessage; // HTTP status message, if available
     this.error = error; // Error message, if available
+    this.redirectUrl = redirectUrl; // Redirect destination URL, if available
   }
   output() {
     let errorText = `- ${this.type}:`;
@@ -43,18 +44,23 @@ class ExternalLinkError extends LinkError {
       ? `${errorText} ${this.statusCode} (${this.statusMessage})`
       : errorText;
     errorText = this.error ? `${errorText} (${this.error})` : errorText;
-    errorText = `${errorText}\n   ${this.link.url}`;
-    //this.link.text
+    if (this.redirectUrl) {
+      const fragment = this.link.url.includes('#') ? this.link.url.slice(this.link.url.indexOf('#')) : '';
+      errorText = `${errorText}\n   FROM: ${this.link.url}\n   TO:   ${this.redirectUrl}${fragment}`;
+    } else {
+      errorText = `${errorText}\n   ${this.link.url}`;
+    }
     console.log(errorText);
   }
 }
 
 class ExternalLinkWarning extends LinkError {
-  constructor({ file, link, statusCode, statusMessage, error, docsroot }) {
+  constructor({ file, link, statusCode, statusMessage, error, redirectUrl, docsroot }) {
     super({ file: file, link: link, type: "ExternalLinkWarning", docsroot }); // call the super class constructor and pass in the param object
     this.statusCode = statusCode; // HTTP status code, if available
     this.statusMessage = statusMessage; // HTTP status message, if available
     this.error = error; // Error message, if available
+    this.redirectUrl = redirectUrl; // Redirect destination URL, if available
   }
   output() {
     let errorText = `- ${this.type}:`;
@@ -62,8 +68,12 @@ class ExternalLinkWarning extends LinkError {
       ? `${errorText} ${this.statusCode} (${this.statusMessage})`
       : errorText;
     errorText = this.error ? `${errorText} (${this.error})` : errorText;
-    errorText = `${errorText}\n   ${this.link.url}`;
-    //this.link.text
+    if (this.redirectUrl) {
+      const fragment = this.link.url.includes('#') ? this.link.url.slice(this.link.url.indexOf('#')) : '';
+      errorText = `${errorText}\n   FROM: ${this.link.url}\n   TO:   ${this.redirectUrl}${fragment}`;
+    } else {
+      errorText = `${errorText}\n   ${this.link.url}`;
+    }
     console.log(errorText);
   }
 }

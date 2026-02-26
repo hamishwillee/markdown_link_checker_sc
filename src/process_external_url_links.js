@@ -448,6 +448,7 @@ async function processExternalUrlLinks(results, manager = null) {
               statusCode: urlResult.statusCode,
               statusMessage: urlResult.statusMessage,
               error: urlResult.error,
+              redirectUrl: urlResult.redirectUrl,
             })
           );
         } else {
@@ -458,6 +459,7 @@ async function processExternalUrlLinks(results, manager = null) {
               statusCode: urlResult.statusCode,
               statusMessage: urlResult.statusMessage,
               error: urlResult.error,
+              redirectUrl: urlResult.redirectUrl,
             })
           );
         }

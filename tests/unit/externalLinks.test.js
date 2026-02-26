@@ -852,6 +852,73 @@ describe("processExternalUrlLinks(): error classification", () => {
     const errors = await processExternalUrlLinks([{ urlLinks: [] }], mgr);
     assert.equal(errors.length, 0);
   });
+
+  test("301 with redirectUrl → error carries redirectUrl", async () => {
+    const mgr = new LinkManager(
+      mockResolve(301, "Moved Permanently", "https://example.com/new"),
+      10
+    );
+    const errors = await processExternalUrlLinks(
+      makeResults([makeLink("https://example.com/old")]),
+      mgr
+    );
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].redirectUrl, "https://example.com/new");
+  });
+
+  test("301 with redirectUrl → output() prints FROM/TO lines", async () => {
+    const mgr = new LinkManager(
+      mockResolve(301, "Moved Permanently", "https://example.com/new"),
+      10
+    );
+    const errors = await processExternalUrlLinks(
+      makeResults([makeLink("https://example.com/old")]),
+      mgr
+    );
+    const lines = [];
+    const origLog = console.log;
+    console.log = (s) => lines.push(s);
+    errors[0].output();
+    console.log = origLog;
+
+    assert.ok(lines[0].includes("FROM: https://example.com/old"), "should include FROM line");
+    assert.ok(lines[0].includes("TO:   https://example.com/new"), "should include TO line");
+  });
+
+  test("301 with redirectUrl and original fragment → TO includes fragment", async () => {
+    const mgr = new LinkManager(
+      mockResolve(301, "Moved Permanently", "https://example.com/new"),
+      10
+    );
+    const errors = await processExternalUrlLinks(
+      makeResults([makeLink("https://example.com/old#section-1")]),
+      mgr
+    );
+    const lines = [];
+    const origLog = console.log;
+    console.log = (s) => lines.push(s);
+    errors[0].output();
+    console.log = origLog;
+
+    assert.ok(lines[0].includes("FROM: https://example.com/old#section-1"), "FROM should include fragment");
+    assert.ok(lines[0].includes("TO:   https://example.com/new#section-1"), "TO should include original fragment");
+  });
+
+  test("404 without redirectUrl → output() prints single URL line", async () => {
+    const mgr = new LinkManager(mockResolve(404, "Not Found"), 10);
+    const errors = await processExternalUrlLinks(
+      makeResults([makeLink("https://example.com/missing")]),
+      mgr
+    );
+    const lines = [];
+    const origLog = console.log;
+    console.log = (s) => lines.push(s);
+    errors[0].output();
+    console.log = origLog;
+
+    assert.ok(!lines[0].includes("FROM:"), "should not include FROM: when no redirect");
+    assert.ok(lines[0].includes("https://example.com/missing"), "should include the URL");
+  });
 });
 
 // ─── getHeadRequestStatusCode(): HEAD→GET fallback ────────────────────────────
