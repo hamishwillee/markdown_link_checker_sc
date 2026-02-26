@@ -785,13 +785,37 @@ describe("processExternalUrlLinks(): error classification", () => {
     assert.equal(errors[0].statusCode, 500);
   });
 
-  test("network error → ExternalLinkError carrying the underlying Error object", async () => {
+  test("network error (plain Error, no code) → ExternalLinkError carrying the underlying Error object", async () => {
     const mgr = new LinkManager(mockReject("ECONNREFUSED"), 10);
     const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/unreachable")]), mgr);
     assert.equal(errors.length, 1);
     assert.equal(errors[0].type, "ExternalLinkError");
     assert.ok(errors[0].error, "should carry the underlying error");
     assert.match(errors[0].error.message, /ECONNREFUSED/);
+  });
+
+  test("AggregateError (Happy Eyeballs) → ExternalLinkWarning", async () => {
+    const mockAgg = async () => { throw new AggregateError([new Error("IPv4 failed"), new Error("IPv6 failed")], "All connections failed"); };
+    const mgr = new LinkManager(mockAgg, 10);
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/agg")]), mgr);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].type, "ExternalLinkWarning", "AggregateError should be a warning, not an error");
+  });
+
+  test("Error with code ECONNREFUSED → ExternalLinkWarning", async () => {
+    const mockConnRefused = async () => { const e = new Error("connect ECONNREFUSED"); e.code = "ECONNREFUSED"; throw e; };
+    const mgr = new LinkManager(mockConnRefused, 10);
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/refused")]), mgr);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].type, "ExternalLinkWarning", "ECONNREFUSED should be a warning");
+  });
+
+  test("Error with code ECONNRESET → ExternalLinkWarning", async () => {
+    const mockReset = async () => { const e = new Error("read ECONNRESET"); e.code = "ECONNRESET"; throw e; };
+    const mgr = new LinkManager(mockReset, 10);
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/reset")]), mgr);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].type, "ExternalLinkWarning", "ECONNRESET should be a warning");
   });
 
   test("multiple links from one page — all errors are collected", async () => {
@@ -997,13 +1021,37 @@ describe("getHeadRequestStatusCode(): HEAD→GET fallback", () => {
     assert.equal(result.statusCode, 403);
   });
 
-  test("does not fall back to GET for non-403 error codes (e.g. 404)", async () => {
+  test("falls back to GET for 404 (some servers return 404 to HEAD but 200 to GET)", async () => {
     const calls = [];
     const mockReq = async (_url, method) => {
       calls.push(method);
-      return { statusCode: 404, statusMessage: "Not Found" };
+      if (method === "HEAD") return { statusCode: 404, statusMessage: "Not Found" };
+      return { statusCode: 200, statusMessage: "OK" };
+    };
+    const result = await getHeadRequestStatusCode("https://example.com/", 5000, mockReq);
+    assert.deepEqual(calls, ["HEAD", "GET"], "should retry with GET after HEAD 404");
+    assert.equal(result.statusCode, 200);
+  });
+
+  test("falls back to GET for 405 Method Not Allowed", async () => {
+    const calls = [];
+    const mockReq = async (_url, method) => {
+      calls.push(method);
+      if (method === "HEAD") return { statusCode: 405, statusMessage: "Method Not Allowed" };
+      return { statusCode: 200, statusMessage: "OK" };
+    };
+    const result = await getHeadRequestStatusCode("https://example.com/", 5000, mockReq);
+    assert.deepEqual(calls, ["HEAD", "GET"], "should retry with GET after HEAD 405");
+    assert.equal(result.statusCode, 200);
+  });
+
+  test("does not fall back to GET for other non-success codes (e.g. 500)", async () => {
+    const calls = [];
+    const mockReq = async (_url, method) => {
+      calls.push(method);
+      return { statusCode: 500, statusMessage: "Internal Server Error" };
     };
     await getHeadRequestStatusCode("https://example.com/", 5000, mockReq);
-    assert.deepEqual(calls, ["HEAD"], "should not retry with GET for non-403 responses");
+    assert.deepEqual(calls, ["HEAD"], "should not retry with GET for 500 responses");
   });
 });

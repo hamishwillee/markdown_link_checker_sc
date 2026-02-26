@@ -26,9 +26,40 @@ function filterIgnoreErrors(errors, options) {
     options.log.includes("quick") ? console.log(error) : null;
   }
 
+  // Split entries into active and expired based on optional expiry field.
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const activeEntries = [];
+  const expiredEntries = [];
+  ignoreErrors.forEach((entry) => {
+    if (entry.expiry) {
+      const expiryDate = new Date(entry.expiry);
+      expiryDate.setHours(0, 0, 0, 0);
+      if (expiryDate < today) {
+        expiredEntries.push(entry);
+      } else {
+        activeEntries.push(entry);
+      }
+    } else {
+      activeEntries.push(entry);
+    }
+  });
+
+  if (expiredEntries.length > 0) {
+    expiredEntries.forEach((entry) => {
+      const url = entry.link?.url ?? "(no url)";
+      console.log(`Ignore entry expired and removed: ${url} (expired: ${entry.expiry})`);
+    });
+    try {
+      fs.writeFileSync(errorFile, JSON.stringify(activeEntries, null, 2));
+    } catch (writeError) {
+      console.error(`Failed to write updated ignore file: ${writeError.message}`);
+    }
+  }
+
   const filteredErrors = errors.filter((error) => {
     let returnValue = true; //All items are not filtered, by default.
-    ignoreErrors.forEach((ignorableError) => {
+    activeEntries.forEach((ignorableError) => {
       if (
         error.type === ignorableError.type &&
         normalize(error.fileRelativeToRoot) ===

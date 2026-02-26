@@ -102,6 +102,11 @@ program
     "Reason for the --add-ignore-url entry",
     ""
   )
+  .option(
+    "--ignore-expiry-months <n>",
+    "Default expiry in months for new ignore entries added via --add-ignore-url (default: 3)",
+    "3"
+  )
   .parse(process.argv);
 
 // TODO PX4 special parsing - errors or pages we exclude by default.
@@ -152,9 +157,14 @@ if (sharedData.options.addIgnoreUrl) {
   try {
     existing = JSON.parse(fs.readFileSync(ignoreFilePath, "utf8"));
   } catch {}
+  const expiryMonths = parseInt(sharedData.options.ignoreExpiryMonths ?? "3", 10);
+  const expiryDate = new Date();
+  expiryDate.setMonth(expiryDate.getMonth() + expiryMonths);
+  const expiryStr = expiryDate.toISOString().slice(0, 10);
   existing.push({
     link: { url: sharedData.options.addIgnoreUrl, text: "" },
     hideReason: sharedData.options.addIgnoreReason || "",
+    expiry: expiryStr,
   });
   fs.mkdirSync(path.dirname(ignoreFilePath), { recursive: true });
   fs.writeFileSync(ignoreFilePath, JSON.stringify(existing, null, 2));

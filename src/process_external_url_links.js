@@ -107,7 +107,7 @@ async function makeHttpRequest(urlString, method, timeoutMs = 5000) {
  */
 async function getHeadRequestStatusCode(urlString, timeoutMs = 5000, _makeRequest = makeHttpRequest) {
   const headResult = await _makeRequest(urlString, "HEAD", timeoutMs);
-  if (headResult.statusCode === 403) {
+  if (headResult.statusCode === 403 || headResult.statusCode === 404 || headResult.statusCode === 405) {
     return _makeRequest(urlString, "GET", timeoutMs);
   }
   return headResult;
@@ -452,16 +452,38 @@ async function processExternalUrlLinks(results, manager = null) {
             })
           );
         } else {
-          errors.push(
-            new ExternalLinkError({
-              file: link.page,
-              link,
-              statusCode: urlResult.statusCode,
-              statusMessage: urlResult.statusMessage,
-              error: urlResult.error,
-              redirectUrl: urlResult.redirectUrl,
-            })
-          );
+          // Connection-level failures (AggregateError from Happy Eyeballs, ECONNREFUSED,
+          // ECONNRESET) mean the link couldn't be verified, not necessarily that it's broken.
+          // Treat these as warnings rather than hard errors.
+          const err = urlResult.error;
+          const isConnectionFailure =
+            err instanceof AggregateError ||
+            err?.code === "ECONNREFUSED" ||
+            err?.code === "ECONNRESET";
+
+          if (!urlResult.statusCode && isConnectionFailure) {
+            errors.push(
+              new ExternalLinkWarning({
+                file: link.page,
+                link,
+                statusCode: urlResult.statusCode,
+                statusMessage: urlResult.statusMessage,
+                error: err,
+                redirectUrl: urlResult.redirectUrl,
+              })
+            );
+          } else {
+            errors.push(
+              new ExternalLinkError({
+                file: link.page,
+                link,
+                statusCode: urlResult.statusCode,
+                statusMessage: urlResult.statusMessage,
+                error: urlResult.error,
+                redirectUrl: urlResult.redirectUrl,
+              })
+            );
+          }
         }
       }
     });
