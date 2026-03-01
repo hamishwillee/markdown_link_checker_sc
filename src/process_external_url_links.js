@@ -43,6 +43,7 @@ async function makeHttpRequest(urlString, method, timeoutMs = 5000) {
     hostname: url.hostname,
     port: url.port || (url.protocol === "https:" ? 443 : 80),
     path: url.pathname + url.search,
+    maxHeaderSize: 65536, // 64 KB (default is 16 KB; some sites send very large headers)
     headers: {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
