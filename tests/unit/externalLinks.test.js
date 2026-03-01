@@ -769,6 +769,117 @@ describe("processExternalUrlLinks(): error classification", () => {
     assert.equal(errors[0].statusCode, 403);
   });
 
+  // Cloudflare/CDN-specific codes: CDN or bot-blocking issues, not definitively broken links
+  for (const code of [520, 521, 522, 523, 524, 525, 526, 527, 530]) {
+    test(`${code} (Cloudflare/CDN) → ExternalLinkWarning`, async () => {
+      const mgr = new LinkManager(mockResolve(code, "<none>"), 10);
+      const errors = await processExternalUrlLinks(makeResults([makeLink(`https://example.com/${code}`)]), mgr);
+      assert.equal(errors.length, 1);
+      assert.equal(errors[0].type, "ExternalLinkWarning");
+      assert.equal(errors[0].statusCode, code);
+    });
+  }
+
+  // 502/503/504 — retried once, then classified as warning
+
+  test("502 that succeeds on retry → no error", async () => {
+    let calls = 0;
+    const mockFn = async () => {
+      calls++;
+      if (calls === 1) return { statusCode: 502, statusMessage: "Bad Gateway" };
+      return { statusCode: 200, statusMessage: "OK" };
+    };
+    const mgr = new LinkManager(mockFn, 10);
+    mgr._transientRetryDelayMs = 1;
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/502")]), mgr);
+    assert.equal(errors.length, 0, "successful retry should produce no error");
+    assert.equal(calls, 2, "should have been attempted twice");
+  });
+
+  test("502 that fails both attempts → ExternalLinkWarning", async () => {
+    const mgr = new LinkManager(mockResolve(502, "Bad Gateway"), 10);
+    mgr._transientRetryDelayMs = 1;
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/502")]), mgr);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].type, "ExternalLinkWarning");
+    assert.equal(errors[0].statusCode, 502);
+  });
+
+  test("503 that fails both attempts → ExternalLinkWarning", async () => {
+    const mgr = new LinkManager(mockResolve(503, "Service Unavailable"), 10);
+    mgr._transientRetryDelayMs = 1;
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/503")]), mgr);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].type, "ExternalLinkWarning");
+    assert.equal(errors[0].statusCode, 503);
+  });
+
+  test("504 that fails both attempts → ExternalLinkWarning", async () => {
+    const mgr = new LinkManager(mockResolve(504, "Gateway Timeout"), 10);
+    mgr._transientRetryDelayMs = 1;
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/504")]), mgr);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].type, "ExternalLinkWarning");
+    assert.equal(errors[0].statusCode, 504);
+  });
+
+  test("502 retry respects _transientRetryDelayMs", async () => {
+    const DELAY = 60;
+    let firstCallTime;
+    let secondCallTime;
+    let calls = 0;
+    const mockFn = async () => {
+      calls++;
+      if (calls === 1) { firstCallTime = Date.now(); return { statusCode: 502, statusMessage: "Bad Gateway" }; }
+      secondCallTime = Date.now();
+      return { statusCode: 200, statusMessage: "OK" };
+    };
+    const mgr = new LinkManager(mockFn, 10);
+    mgr._transientRetryDelayMs = DELAY;
+    await processExternalUrlLinks(makeResults([makeLink("https://example.com/slow-502")]), mgr);
+    assert.ok(
+      secondCallTime - firstCallTime >= DELAY - 10,
+      `retry should wait at least ${DELAY}ms, got ${secondCallTime - firstCallTime}ms`
+    );
+  });
+
+  test("502 only retried once even though _maxRetries for 429 is 3", async () => {
+    let calls = 0;
+    const mockFn = async () => { calls++; return { statusCode: 502, statusMessage: "Bad Gateway" }; };
+    const mgr = new LinkManager(mockFn, 10);
+    mgr._transientRetryDelayMs = 1;
+    await processExternalUrlLinks(makeResults([makeLink("https://example.com/always-502")]), mgr);
+    assert.equal(calls, 2, "502 should be attempted exactly twice (1 initial + 1 retry)");
+  });
+
+  test("502 retry recovers to a non-200 success (e.g. 404) → ExternalLinkError not Warning", async () => {
+    let calls = 0;
+    const mockFn = async () => {
+      calls++;
+      if (calls === 1) return { statusCode: 502, statusMessage: "Bad Gateway" };
+      return { statusCode: 404, statusMessage: "Not Found" };
+    };
+    const mgr = new LinkManager(mockFn, 10);
+    mgr._transientRetryDelayMs = 1;
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/was-502")]), mgr);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].type, "ExternalLinkError", "a definitive 404 on retry should be an error, not a warning");
+    assert.equal(errors[0].statusCode, 404);
+  });
+
+  test("520 with statusMessage '<none>' → output() omits the empty message parens", async () => {
+    const mgr = new LinkManager(mockResolve(520, "<none>"), 10);
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/cf")]), mgr);
+    const lines = [];
+    const origLog = console.log;
+    console.log = (s) => lines.push(s);
+    errors[0].output();
+    console.log = origLog;
+
+    assert.ok(!lines[0].includes("(<none>)"), "should not display (<none>) in output");
+    assert.ok(lines[0].includes("520"), "should still include the status code");
+  });
+
   test("404 Not Found → ExternalLinkError", async () => {
     const mgr = new LinkManager(mockResolve(404, "Not Found"), 10);
     const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/missing")]), mgr);

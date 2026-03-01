@@ -40,9 +40,10 @@ class ExternalLinkError extends LinkError {
   }
   output() {
     let errorText = `- ${this.type}:`;
-    errorText = this.statusCode
-      ? `${errorText} ${this.statusCode} (${this.statusMessage})`
-      : errorText;
+    if (this.statusCode) {
+      const msg = this.statusMessage && this.statusMessage !== "<none>" ? ` (${this.statusMessage})` : "";
+      errorText = `${errorText} ${this.statusCode}${msg}`;
+    }
     errorText = this.error ? `${errorText} (${this.error})` : errorText;
     if (this.redirectUrl) {
       const fragment = this.link.url.includes('#') ? this.link.url.slice(this.link.url.indexOf('#')) : '';
@@ -64,9 +65,10 @@ class ExternalLinkWarning extends LinkError {
   }
   output() {
     let errorText = `- ${this.type}:`;
-    errorText = this.statusCode
-      ? `${errorText} ${this.statusCode} (${this.statusMessage})`
-      : errorText;
+    if (this.statusCode) {
+      const msg = this.statusMessage && this.statusMessage !== "<none>" ? ` (${this.statusMessage})` : "";
+      errorText = `${errorText} ${this.statusCode}${msg}`;
+    }
     errorText = this.error ? `${errorText} (${this.error})` : errorText;
     if (this.redirectUrl) {
       const fragment = this.link.url.includes('#') ? this.link.url.slice(this.link.url.indexOf('#')) : '';

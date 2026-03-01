@@ -125,6 +125,11 @@ async function getHeadRequestStatusCode(urlString, timeoutMs = 5000, _makeReques
  *     one HTTP request.
  *   - abort() to stop immediately and continue with partial results.
  */
+// Transient server-side codes that warrant one automatic retry before being
+// classified.  Includes standard gateway/overload codes (502–504) that are
+// often triggered by bot-protection CDNs or momentary load spikes.
+const TRANSIENT_CODES = new Set([502, 503, 504]);
+
 class LinkManager {
   constructor(headRequestFunction, maxConcurrent = 10) {
     this.checkedUrls = new Map();
@@ -151,6 +156,11 @@ class LinkManager {
     this._retryAttempts = new Map();
     this._maxRetries = 3;
     this._baseRetryDelayMs = 1000;
+
+    // Transient-code retry: one retry after a short fixed delay.
+    this._transientRetryAttempts = new Map();
+    this._maxTransientRetries = 1;
+    this._transientRetryDelayMs = 2000;
 
     this._completionPromise = new Promise((resolve) => {
       this._resolveCompletionPromise = resolve;
@@ -283,6 +293,22 @@ class LinkManager {
                   error: new Error("Too many retries for 429 status code"),
                 });
               }
+            } else if (TRANSIENT_CODES.has(result.statusCode)) {
+              // Transient server error (502/503/504): retry once after a short delay.
+              const currentRetries = this._transientRetryAttempts.get(urlToProcess) ?? 0;
+              if (currentRetries < this._maxTransientRetries) {
+                this._transientRetryAttempts.set(urlToProcess, currentRetries + 1);
+                const retryEntry = { url: urlToProcess, ready: false };
+                this.retryQueue.push(retryEntry);
+                this._retrySet.add(urlToProcess);
+                setTimeout(() => { retryEntry.ready = true; this._processQueue(); }, this._transientRetryDelayMs);
+              } else {
+                this.checkedUrls.set(urlToProcess, {
+                  statusCode: result.statusCode,
+                  statusMessage: result.statusMessage,
+                });
+                this._transientRetryAttempts.delete(urlToProcess);
+              }
             } else {
               this.checkedUrls.set(urlToProcess, {
                 statusCode: result.statusCode,
@@ -290,6 +316,7 @@ class LinkManager {
                 redirectUrl: result.redirectUrl,
               });
               this._retryAttempts.delete(urlToProcess);
+              this._transientRetryAttempts.delete(urlToProcess);
               if (result.redirectUrl) {
                 this.checkURL(result.redirectUrl, true);
               }
@@ -439,7 +466,16 @@ async function processExternalUrlLinks(results, manager = null) {
           urlResult.statusCode === 302 ||
           urlResult.statusCode === 303 ||
           urlResult.statusCode === 307 ||
-          urlResult.statusCode === 403
+          urlResult.statusCode === 403 ||
+          // Transient server-side codes: retried once automatically; if still failing
+          // after retry they are more likely bot-blocking or load spikes than broken links.
+          urlResult.statusCode === 502 ||
+          urlResult.statusCode === 503 ||
+          urlResult.statusCode === 504 ||
+          // Cloudflare/CDN-specific codes (520–527, 530): indicate CDN or bot-blocking
+          // issues rather than a definitively broken link, so report as warning not error.
+          (urlResult.statusCode >= 520 && urlResult.statusCode <= 527) ||
+          urlResult.statusCode === 530
         ) {
           errors.push(
             new ExternalLinkWarning({
