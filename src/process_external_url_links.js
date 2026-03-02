@@ -84,9 +84,9 @@ async function makeHttpRequest(urlString, method, timeoutMs = 5000) {
     });
 
     timeoutId = setTimeout(() => {
-      req.destroy(
-        new Error(`Request timed out after ${timeoutMs}ms for ${urlString} (${method})`)
-      );
+      const err = new Error(`Request timed out after ${timeoutMs}ms for ${urlString} (${method})`);
+      err.code = "ETIMEDOUT";
+      req.destroy(err);
     }, timeoutMs);
 
     req.on("error", (e) => {
@@ -107,7 +107,17 @@ async function makeHttpRequest(urlString, method, timeoutMs = 5000) {
  * @returns {Promise<{statusCode: number, statusMessage: string, redirectUrl?: string, retryAfterMs?: number}>}
  */
 async function getHeadRequestStatusCode(urlString, timeoutMs = 5000, _makeRequest = makeHttpRequest) {
-  const headResult = await _makeRequest(urlString, "HEAD", timeoutMs);
+  let headResult;
+  try {
+    headResult = await _makeRequest(urlString, "HEAD", timeoutMs);
+  } catch (err) {
+    // Some servers silently drop HEAD requests, causing a timeout rather than
+    // returning 405.  Retry with GET before giving up.
+    if (err.code === "ETIMEDOUT") {
+      return _makeRequest(urlString, "GET", timeoutMs);
+    }
+    throw err;
+  }
   if (headResult.statusCode === 403 || headResult.statusCode === 404 || headResult.statusCode === 405) {
     return _makeRequest(urlString, "GET", timeoutMs);
   }
@@ -496,7 +506,8 @@ async function processExternalUrlLinks(results, manager = null) {
           const isConnectionFailure =
             err instanceof AggregateError ||
             err?.code === "ECONNREFUSED" ||
-            err?.code === "ECONNRESET";
+            err?.code === "ECONNRESET" ||
+            err?.code === "ETIMEDOUT";
 
           if (!urlResult.statusCode && isConnectionFailure) {
             errors.push(

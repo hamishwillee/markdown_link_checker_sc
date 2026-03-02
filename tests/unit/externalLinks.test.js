@@ -600,15 +600,16 @@ describe("LinkManager: network/request errors", () => {
     assert.match(result.error.message, /ECONNREFUSED/);
   });
 
-  test("timeout error is stored as an error", async () => {
-    const mgr = new LinkManager(mockReject("Request timed out after 8000ms"), 10);
+  test("timeout error (ETIMEDOUT code) is stored as an error", async () => {
+    const mockTimeout = async () => { const e = new Error("Request timed out after 8000ms"); e.code = "ETIMEDOUT"; throw e; };
+    const mgr = new LinkManager(mockTimeout, 10);
     mgr.checkURL("https://example.com/timeout");
     mgr.finish();
     await mgr.onComplete();
 
     const result = mgr.checkedUrls.get("https://example.com/timeout");
     assert.ok(result.error);
-    assert.match(result.error.message, /timed out/i);
+    assert.equal(result.error.code, "ETIMEDOUT");
   });
 
   test("malformed URL is stored as an error without crashing", async () => {
@@ -929,6 +930,14 @@ describe("processExternalUrlLinks(): error classification", () => {
     assert.equal(errors[0].type, "ExternalLinkWarning", "ECONNRESET should be a warning");
   });
 
+  test("Error with code ETIMEDOUT → ExternalLinkWarning (timeout means unverifiable, not definitively broken)", async () => {
+    const mockTimeout = async () => { const e = new Error("Request timed out after 8000ms"); e.code = "ETIMEDOUT"; throw e; };
+    const mgr = new LinkManager(mockTimeout, 10);
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/slow")]), mgr);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].type, "ExternalLinkWarning", "ETIMEDOUT should be a warning");
+  });
+
   test("multiple links from one page — all errors are collected", async () => {
     const mockFn = async (url) => {
       if (url.includes("/ok")) return { statusCode: 200, statusMessage: "OK" };
@@ -1164,5 +1173,47 @@ describe("getHeadRequestStatusCode(): HEAD→GET fallback", () => {
     };
     await getHeadRequestStatusCode("https://example.com/", 5000, mockReq);
     assert.deepEqual(calls, ["HEAD"], "should not retry with GET for 500 responses");
+  });
+
+  test("HEAD ETIMEDOUT → retries with GET and returns GET result", async () => {
+    const calls = [];
+    const mockReq = async (_url, method) => {
+      calls.push(method);
+      if (method === "HEAD") { const e = new Error("Request timed out"); e.code = "ETIMEDOUT"; throw e; }
+      return { statusCode: 200, statusMessage: "OK" };
+    };
+    const result = await getHeadRequestStatusCode("https://example.com/", 5000, mockReq);
+    assert.deepEqual(calls, ["HEAD", "GET"], "should try HEAD first then GET on timeout");
+    assert.equal(result.statusCode, 200);
+  });
+
+  test("HEAD ETIMEDOUT, GET also times out → throws the GET error", async () => {
+    const calls = [];
+    const mockReq = async (_url, method) => {
+      calls.push(method);
+      const e = new Error(`Request timed out (${method})`);
+      e.code = "ETIMEDOUT";
+      throw e;
+    };
+    await assert.rejects(
+      () => getHeadRequestStatusCode("https://example.com/", 5000, mockReq),
+      (err) => err.code === "ETIMEDOUT"
+    );
+    assert.deepEqual(calls, ["HEAD", "GET"]);
+  });
+
+  test("HEAD non-timeout error is not retried with GET", async () => {
+    const calls = [];
+    const mockReq = async (_url, method) => {
+      calls.push(method);
+      const e = new Error("connect ECONNREFUSED");
+      e.code = "ECONNREFUSED";
+      throw e;
+    };
+    await assert.rejects(
+      () => getHeadRequestStatusCode("https://example.com/", 5000, mockReq),
+      (err) => err.code === "ECONNREFUSED"
+    );
+    assert.deepEqual(calls, ["HEAD"], "non-timeout errors should not trigger GET retry");
   });
 });
