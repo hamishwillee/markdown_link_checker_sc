@@ -392,8 +392,7 @@ const processDirectory = async (dir) => {
       // A more robust solution might involve a WeakSet to track seen objects
       // For simplicity here, we're just checking for the specific problematic property
       if (key === "issuerCertificate") {
-        console.warn(`Circular reference detected in key: ${key}`);
-        return "[Circular]"; // Or undefined to omit it entirely
+        return "[Circular]";
       }
     }
     return value;
