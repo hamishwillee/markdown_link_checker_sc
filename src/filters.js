@@ -48,51 +48,49 @@ function filterIgnoreErrors(errors, options) {
   if (expiredEntries.length > 0) {
     expiredEntries.forEach((entry) => {
       const url = entry.link?.url ?? "(no url)";
-      console.log(`Ignore entry expired and removed: ${url} (expired: ${entry.expiry})`);
+      console.log(`Ignore entry expired: ${url} (expired: ${entry.expiry})`);
+      entry.expired = true;
     });
     try {
-      fs.writeFileSync(errorFile, JSON.stringify(activeEntries, null, 2));
+      fs.writeFileSync(errorFile, JSON.stringify([...activeEntries, ...expiredEntries], null, 2));
     } catch (writeError) {
       console.error(`Failed to write updated ignore file: ${writeError.message}`);
     }
   }
 
+  function matchesIgnoreEntry(error, ignorableError) {
+    if (
+      error.type === ignorableError.type &&
+      normalize(error.fileRelativeToRoot) ===
+        normalize(ignorableError.fileRelativeToRoot)
+    ) {
+      if (!(error.link && ignorableError.link)) return true;
+      if (error.link && ignorableError.link && error.link.url === ignorableError.link.url) return true;
+    }
+    // URL-only match: ignore entry has no type/file, just a link.url — suppress globally
+    if (
+      !ignorableError.type &&
+      !ignorableError.fileRelativeToRoot &&
+      error.link &&
+      ignorableError.link &&
+      error.link.url === ignorableError.link.url
+    ) {
+      return true;
+    }
+    return false;
+  }
+
   const filteredErrors = errors.filter((error) => {
-    let returnValue = true; //All items are not filtered, by default.
-    activeEntries.forEach((ignorableError) => {
-      if (
-        error.type === ignorableError.type &&
-        normalize(error.fileRelativeToRoot) ===
-          normalize(ignorableError.fileRelativeToRoot)
-      ) {
-        // Same file and type, so probably filter out.
-        if (!(error.link && ignorableError.link)) {
-          returnValue = false; // Neither have a link, so we match on same type
-        }
-
-        if (
-          error.link &&
-          ignorableError.link &&
-          error.link.url === ignorableError.link.url
-        ) {
-          returnValue = false; // They both have a link and it is the same link
-        }
-      }
-
-      // URL-only match: ignore entry has no type/file, just a link.url — suppress globally
-      if (
-        !ignorableError.type &&
-        !ignorableError.fileRelativeToRoot &&
-        error.link &&
-        ignorableError.link &&
-        error.link.url === ignorableError.link.url
-      ) {
-        returnValue = false;
-      }
-    });
-    //if (returnValue ==false) console.log(error);
-    return returnValue;
+    return !activeEntries.some((ignorableError) => matchesIgnoreEntry(error, ignorableError));
   });
+
+  // Annotate errors that match an expired entry so output can show context.
+  if (expiredEntries.length > 0) {
+    filteredErrors.forEach((error) => {
+      const match = expiredEntries.find((e) => matchesIgnoreEntry(error, e));
+      if (match) error.previouslyIgnored = match;
+    });
+  }
 
   return filteredErrors;
 }

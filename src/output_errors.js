@@ -48,6 +48,14 @@ function outputErrors(results, options) {
       if (error.output) {
         error.output();
 
+        if (error.previouslyIgnored) {
+          const pi = error.previouslyIgnored;
+          let note = `  [Previously ignored until ${pi.expiry}`;
+          if (pi.hideReason) note += `: "${pi.hideReason}"`;
+          note += `]`;
+          console.log(note);
+        }
+
         // Add items to the errors to be ignored, if enabled.
         if (options.interactive) {
           const hideError = prompt("Stop reporting on this error? (Y/N) ", "N");
@@ -70,7 +78,8 @@ function outputErrors(results, options) {
               reduceError.link = reduceLink;
             }
 
-            reduceError.hideReason = prompt("Why? (enter for now reason) ", "");
+            const defaultReason = error.previouslyIgnored?.hideReason ?? "";
+            reduceError.hideReason = prompt("Why? (enter for no reason) ", defaultReason);
 
             ignoreErrors.push(reduceError);
             //updateErrors = true;

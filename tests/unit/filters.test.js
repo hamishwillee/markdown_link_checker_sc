@@ -184,7 +184,7 @@ describe("filterIgnoreErrors — expiry handling", () => {
     assert.strictEqual(result.length, 1, "Expired entry should not suppress the error");
   });
 
-  test("past expiry: expired entry is removed from ignore file", () => {
+  test("past expiry: expired entry is kept in ignore file with expired:true", () => {
     const opts = makeOpts([
       {
         link: { url: "https://www.st.com/page.html", text: "" },
@@ -199,10 +199,11 @@ describe("filterIgnoreErrors — expiry handling", () => {
     });
     filterIgnoreErrors([error], opts);
     const remaining = readIgnoreFile(opts);
-    assert.strictEqual(remaining.length, 0, "Expired entry should be removed from ignore file");
+    assert.strictEqual(remaining.length, 1, "Expired entry should remain in ignore file");
+    assert.strictEqual(remaining[0].expired, true, "Expired entry should be marked with expired:true");
   });
 
-  test("mixed entries: only expired entries are removed, active entries still suppress", () => {
+  test("mixed entries: expired entry kept with expired:true, active entry still suppresses", () => {
     const opts = makeOpts([
       {
         link: { url: "https://expired.example.com/", text: "" },
@@ -229,7 +230,47 @@ describe("filterIgnoreErrors — expiry handling", () => {
     assert.strictEqual(result.length, 1, "Only the expired error should be reported");
     assert.strictEqual(result[0].link.url, "https://expired.example.com/");
     const remaining = readIgnoreFile(opts);
-    assert.strictEqual(remaining.length, 1, "Only the active entry should remain in the ignore file");
-    assert.strictEqual(remaining[0].link.url, "https://active.example.com/");
+    assert.strictEqual(remaining.length, 2, "Both entries should remain in the ignore file");
+    const expiredInFile = remaining.find(e => e.link.url === "https://expired.example.com/");
+    assert.strictEqual(expiredInFile.expired, true, "Expired entry should be marked with expired:true");
+    const activeInFile = remaining.find(e => e.link.url === "https://active.example.com/");
+    assert.strictEqual(activeInFile.expired, undefined, "Active entry should not have expired flag");
+  });
+
+  test("past expiry: matching error gets previouslyIgnored annotation", () => {
+    const opts = makeOpts([
+      {
+        link: { url: "https://www.st.com/page.html", text: "" },
+        hideReason: "bot block",
+        expiry: offsetDate(-1),
+      },
+    ]);
+    const error = makeError({
+      type: "ExternalLinkError",
+      fileRelativeToRoot: "en/some-page.md",
+      linkUrl: "https://www.st.com/page.html",
+    });
+    const result = filterIgnoreErrors([error], opts);
+    assert.strictEqual(result.length, 1, "Expired error should be reported");
+    assert.ok(result[0].previouslyIgnored, "Error should have previouslyIgnored annotation");
+    assert.strictEqual(result[0].previouslyIgnored.hideReason, "bot block");
+  });
+
+  test("past expiry: non-matching error does not get previouslyIgnored annotation", () => {
+    const opts = makeOpts([
+      {
+        link: { url: "https://www.st.com/page.html", text: "" },
+        hideReason: "bot block",
+        expiry: offsetDate(-1),
+      },
+    ]);
+    const error = makeError({
+      type: "ExternalLinkError",
+      fileRelativeToRoot: "en/some-page.md",
+      linkUrl: "https://other.example.com/",
+    });
+    const result = filterIgnoreErrors([error], opts);
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].previouslyIgnored, undefined, "Non-matching error should not have previouslyIgnored");
   });
 });
