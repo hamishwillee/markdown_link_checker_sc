@@ -81,7 +81,7 @@ function outputErrors(results, options) {
   }
 
   // Create the `_link_checker_sc` folder if it doesn't exist.
-  const dirPath = path.join(process.cwd(), "_link_checker_sc");
+  const dirPath = path.join(options.docsroot, "_link_checker_sc");
   if (!fs.existsSync(dirPath) && options.interactive) {
     fs.mkdirSync(dirPath);
   }
