@@ -12,6 +12,7 @@ import {
   LinkManager,
   processExternalUrlLinks,
   stripFragment,
+  getHeadRequestStatusCode,
 } from "../../src/process_external_url_links.js";
 
 // ─── Mock helpers ────────────────────────────────────────────────────────────
@@ -599,15 +600,16 @@ describe("LinkManager: network/request errors", () => {
     assert.match(result.error.message, /ECONNREFUSED/);
   });
 
-  test("timeout error is stored as an error", async () => {
-    const mgr = new LinkManager(mockReject("Request timed out after 8000ms"), 10);
+  test("timeout error (ETIMEDOUT code) is stored as an error", async () => {
+    const mockTimeout = async () => { const e = new Error("Request timed out after 8000ms"); e.code = "ETIMEDOUT"; throw e; };
+    const mgr = new LinkManager(mockTimeout, 10);
     mgr.checkURL("https://example.com/timeout");
     mgr.finish();
     await mgr.onComplete();
 
     const result = mgr.checkedUrls.get("https://example.com/timeout");
     assert.ok(result.error);
-    assert.match(result.error.message, /timed out/i);
+    assert.equal(result.error.code, "ETIMEDOUT");
   });
 
   test("malformed URL is stored as an error without crashing", async () => {
@@ -700,7 +702,7 @@ describe("LinkManager: finish() and onComplete()", () => {
 // ─── LinkManager: status code storage ────────────────────────────────────────
 
 describe("LinkManager: status code storage", () => {
-  for (const code of [200, 301, 302, 303, 307, 400, 403, 404, 410, 500]) {
+  for (const code of [200, 301, 302, 303, 307, 308, 400, 403, 404, 410, 500]) {
     test(`stores statusCode ${code} correctly`, async () => {
       const mgr = new LinkManager(mockResolve(code, `Status ${code}`), 10);
       mgr.checkURL(`https://example.com/${code}`);
@@ -752,6 +754,133 @@ describe("processExternalUrlLinks(): error classification", () => {
     assert.equal(errors[0].type, "ExternalLinkError");
   });
 
+  test("308 Permanent Redirect → ExternalLinkError (not a warning)", async () => {
+    const mgr = new LinkManager(mockResolve(308, "Permanent Redirect"), 10);
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/308")]), mgr);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].type, "ExternalLinkError");
+    assert.equal(errors[0].statusCode, 308);
+  });
+
+  test("403 Forbidden → ExternalLinkWarning (bot-blocking sites still load in browsers)", async () => {
+    const mgr = new LinkManager(mockResolve(403, "Forbidden"), 10);
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/blocked")]), mgr);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].type, "ExternalLinkWarning");
+    assert.equal(errors[0].statusCode, 403);
+  });
+
+  // Cloudflare/CDN-specific codes: CDN or bot-blocking issues, not definitively broken links
+  for (const code of [520, 521, 522, 523, 524, 525, 526, 527, 530]) {
+    test(`${code} (Cloudflare/CDN) → ExternalLinkWarning`, async () => {
+      const mgr = new LinkManager(mockResolve(code, "<none>"), 10);
+      const errors = await processExternalUrlLinks(makeResults([makeLink(`https://example.com/${code}`)]), mgr);
+      assert.equal(errors.length, 1);
+      assert.equal(errors[0].type, "ExternalLinkWarning");
+      assert.equal(errors[0].statusCode, code);
+    });
+  }
+
+  // 502/503/504 — retried once, then classified as warning
+
+  test("502 that succeeds on retry → no error", async () => {
+    let calls = 0;
+    const mockFn = async () => {
+      calls++;
+      if (calls === 1) return { statusCode: 502, statusMessage: "Bad Gateway" };
+      return { statusCode: 200, statusMessage: "OK" };
+    };
+    const mgr = new LinkManager(mockFn, 10);
+    mgr._transientRetryDelayMs = 1;
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/502")]), mgr);
+    assert.equal(errors.length, 0, "successful retry should produce no error");
+    assert.equal(calls, 2, "should have been attempted twice");
+  });
+
+  test("502 that fails both attempts → ExternalLinkWarning", async () => {
+    const mgr = new LinkManager(mockResolve(502, "Bad Gateway"), 10);
+    mgr._transientRetryDelayMs = 1;
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/502")]), mgr);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].type, "ExternalLinkWarning");
+    assert.equal(errors[0].statusCode, 502);
+  });
+
+  test("503 that fails both attempts → ExternalLinkWarning", async () => {
+    const mgr = new LinkManager(mockResolve(503, "Service Unavailable"), 10);
+    mgr._transientRetryDelayMs = 1;
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/503")]), mgr);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].type, "ExternalLinkWarning");
+    assert.equal(errors[0].statusCode, 503);
+  });
+
+  test("504 that fails both attempts → ExternalLinkWarning", async () => {
+    const mgr = new LinkManager(mockResolve(504, "Gateway Timeout"), 10);
+    mgr._transientRetryDelayMs = 1;
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/504")]), mgr);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].type, "ExternalLinkWarning");
+    assert.equal(errors[0].statusCode, 504);
+  });
+
+  test("502 retry respects _transientRetryDelayMs", async () => {
+    const DELAY = 60;
+    let firstCallTime;
+    let secondCallTime;
+    let calls = 0;
+    const mockFn = async () => {
+      calls++;
+      if (calls === 1) { firstCallTime = Date.now(); return { statusCode: 502, statusMessage: "Bad Gateway" }; }
+      secondCallTime = Date.now();
+      return { statusCode: 200, statusMessage: "OK" };
+    };
+    const mgr = new LinkManager(mockFn, 10);
+    mgr._transientRetryDelayMs = DELAY;
+    await processExternalUrlLinks(makeResults([makeLink("https://example.com/slow-502")]), mgr);
+    assert.ok(
+      secondCallTime - firstCallTime >= DELAY - 10,
+      `retry should wait at least ${DELAY}ms, got ${secondCallTime - firstCallTime}ms`
+    );
+  });
+
+  test("502 only retried once even though _maxRetries for 429 is 3", async () => {
+    let calls = 0;
+    const mockFn = async () => { calls++; return { statusCode: 502, statusMessage: "Bad Gateway" }; };
+    const mgr = new LinkManager(mockFn, 10);
+    mgr._transientRetryDelayMs = 1;
+    await processExternalUrlLinks(makeResults([makeLink("https://example.com/always-502")]), mgr);
+    assert.equal(calls, 2, "502 should be attempted exactly twice (1 initial + 1 retry)");
+  });
+
+  test("502 retry recovers to a non-200 success (e.g. 404) → ExternalLinkError not Warning", async () => {
+    let calls = 0;
+    const mockFn = async () => {
+      calls++;
+      if (calls === 1) return { statusCode: 502, statusMessage: "Bad Gateway" };
+      return { statusCode: 404, statusMessage: "Not Found" };
+    };
+    const mgr = new LinkManager(mockFn, 10);
+    mgr._transientRetryDelayMs = 1;
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/was-502")]), mgr);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].type, "ExternalLinkError", "a definitive 404 on retry should be an error, not a warning");
+    assert.equal(errors[0].statusCode, 404);
+  });
+
+  test("520 with statusMessage '<none>' → output() omits the empty message parens", async () => {
+    const mgr = new LinkManager(mockResolve(520, "<none>"), 10);
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/cf")]), mgr);
+    const lines = [];
+    const origLog = console.log;
+    console.log = (s) => lines.push(s);
+    errors[0].output();
+    console.log = origLog;
+
+    assert.ok(!lines[0].includes("(<none>)"), "should not display (<none>) in output");
+    assert.ok(lines[0].includes("520"), "should still include the status code");
+  });
+
   test("404 Not Found → ExternalLinkError", async () => {
     const mgr = new LinkManager(mockResolve(404, "Not Found"), 10);
     const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/missing")]), mgr);
@@ -768,13 +897,45 @@ describe("processExternalUrlLinks(): error classification", () => {
     assert.equal(errors[0].statusCode, 500);
   });
 
-  test("network error → ExternalLinkError carrying the underlying Error object", async () => {
+  test("network error (plain Error, no code) → ExternalLinkError carrying the underlying Error object", async () => {
     const mgr = new LinkManager(mockReject("ECONNREFUSED"), 10);
     const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/unreachable")]), mgr);
     assert.equal(errors.length, 1);
     assert.equal(errors[0].type, "ExternalLinkError");
     assert.ok(errors[0].error, "should carry the underlying error");
     assert.match(errors[0].error.message, /ECONNREFUSED/);
+  });
+
+  test("AggregateError (Happy Eyeballs) → ExternalLinkWarning", async () => {
+    const mockAgg = async () => { throw new AggregateError([new Error("IPv4 failed"), new Error("IPv6 failed")], "All connections failed"); };
+    const mgr = new LinkManager(mockAgg, 10);
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/agg")]), mgr);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].type, "ExternalLinkWarning", "AggregateError should be a warning, not an error");
+  });
+
+  test("Error with code ECONNREFUSED → ExternalLinkWarning", async () => {
+    const mockConnRefused = async () => { const e = new Error("connect ECONNREFUSED"); e.code = "ECONNREFUSED"; throw e; };
+    const mgr = new LinkManager(mockConnRefused, 10);
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/refused")]), mgr);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].type, "ExternalLinkWarning", "ECONNREFUSED should be a warning");
+  });
+
+  test("Error with code ECONNRESET → ExternalLinkWarning", async () => {
+    const mockReset = async () => { const e = new Error("read ECONNRESET"); e.code = "ECONNRESET"; throw e; };
+    const mgr = new LinkManager(mockReset, 10);
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/reset")]), mgr);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].type, "ExternalLinkWarning", "ECONNRESET should be a warning");
+  });
+
+  test("Error with code ETIMEDOUT → ExternalLinkWarning (timeout means unverifiable, not definitively broken)", async () => {
+    const mockTimeout = async () => { const e = new Error("Request timed out after 8000ms"); e.code = "ETIMEDOUT"; throw e; };
+    const mgr = new LinkManager(mockTimeout, 10);
+    const errors = await processExternalUrlLinks(makeResults([makeLink("https://example.com/slow")]), mgr);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].type, "ExternalLinkWarning", "ETIMEDOUT should be a warning");
   });
 
   test("multiple links from one page — all errors are collected", async () => {
@@ -842,5 +1003,217 @@ describe("processExternalUrlLinks(): error classification", () => {
     const mgr = new LinkManager(mockResolve(200), 10);
     const errors = await processExternalUrlLinks([{ urlLinks: [] }], mgr);
     assert.equal(errors.length, 0);
+  });
+
+  test("301 with redirectUrl → error carries redirectUrl", async () => {
+    const mgr = new LinkManager(
+      mockResolve(301, "Moved Permanently", "https://example.com/new"),
+      10
+    );
+    const errors = await processExternalUrlLinks(
+      makeResults([makeLink("https://example.com/old")]),
+      mgr
+    );
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].redirectUrl, "https://example.com/new");
+  });
+
+  test("301 with redirectUrl → output() prints FROM/TO lines", async () => {
+    const mgr = new LinkManager(
+      mockResolve(301, "Moved Permanently", "https://example.com/new"),
+      10
+    );
+    const errors = await processExternalUrlLinks(
+      makeResults([makeLink("https://example.com/old")]),
+      mgr
+    );
+    const lines = [];
+    const origLog = console.log;
+    console.log = (s) => lines.push(s);
+    errors[0].output();
+    console.log = origLog;
+
+    assert.ok(lines[0].includes("FROM: https://example.com/old"), "should include FROM line");
+    assert.ok(lines[0].includes("TO:   https://example.com/new"), "should include TO line");
+  });
+
+  test("302 with redirectUrl → ExternalLinkWarning output() prints FROM/TO lines", async () => {
+    const mgr = new LinkManager(
+      mockResolve(302, "Found", "https://example.com/new"),
+      10
+    );
+    const errors = await processExternalUrlLinks(
+      makeResults([makeLink("https://example.com/old")]),
+      mgr
+    );
+    const lines = [];
+    const origLog = console.log;
+    console.log = (s) => lines.push(s);
+    errors[0].output();
+    console.log = origLog;
+
+    assert.equal(errors[0].type, "ExternalLinkWarning");
+    assert.ok(lines[0].includes("FROM: https://example.com/old"), "should include FROM line");
+    assert.ok(lines[0].includes("TO:   https://example.com/new"), "should include TO line");
+  });
+
+  test("308 with redirectUrl → ExternalLinkError output() prints FROM/TO lines", async () => {
+    const mgr = new LinkManager(
+      mockResolve(308, "Permanent Redirect", "https://example.com/new"),
+      10
+    );
+    const errors = await processExternalUrlLinks(
+      makeResults([makeLink("https://example.com/old")]),
+      mgr
+    );
+    const lines = [];
+    const origLog = console.log;
+    console.log = (s) => lines.push(s);
+    errors[0].output();
+    console.log = origLog;
+
+    assert.equal(errors[0].type, "ExternalLinkError");
+    assert.ok(lines[0].includes("FROM: https://example.com/old"), "should include FROM line");
+    assert.ok(lines[0].includes("TO:   https://example.com/new"), "should include TO line");
+  });
+
+  test("301 with redirectUrl and original fragment → TO includes fragment", async () => {
+    const mgr = new LinkManager(
+      mockResolve(301, "Moved Permanently", "https://example.com/new"),
+      10
+    );
+    const errors = await processExternalUrlLinks(
+      makeResults([makeLink("https://example.com/old#section-1")]),
+      mgr
+    );
+    const lines = [];
+    const origLog = console.log;
+    console.log = (s) => lines.push(s);
+    errors[0].output();
+    console.log = origLog;
+
+    assert.ok(lines[0].includes("FROM: https://example.com/old#section-1"), "FROM should include fragment");
+    assert.ok(lines[0].includes("TO:   https://example.com/new#section-1"), "TO should include original fragment");
+  });
+
+  test("404 without redirectUrl → output() prints single URL line", async () => {
+    const mgr = new LinkManager(mockResolve(404, "Not Found"), 10);
+    const errors = await processExternalUrlLinks(
+      makeResults([makeLink("https://example.com/missing")]),
+      mgr
+    );
+    const lines = [];
+    const origLog = console.log;
+    console.log = (s) => lines.push(s);
+    errors[0].output();
+    console.log = origLog;
+
+    assert.ok(!lines[0].includes("FROM:"), "should not include FROM: when no redirect");
+    assert.ok(lines[0].includes("https://example.com/missing"), "should include the URL");
+  });
+});
+
+// ─── getHeadRequestStatusCode(): HEAD→GET fallback ────────────────────────────
+
+describe("getHeadRequestStatusCode(): HEAD→GET fallback", () => {
+  test("returns HEAD result directly when status is not 403", async () => {
+    const mockReq = async (_url, method) => ({ statusCode: 200, statusMessage: "OK", method });
+    const result = await getHeadRequestStatusCode("https://example.com/", 5000, mockReq);
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.method, "HEAD");
+  });
+
+  test("falls back to GET when HEAD returns 403, and returns the GET result", async () => {
+    const calls = [];
+    const mockReq = async (_url, method) => {
+      calls.push(method);
+      if (method === "HEAD") return { statusCode: 403, statusMessage: "Forbidden" };
+      return { statusCode: 200, statusMessage: "OK" };
+    };
+    const result = await getHeadRequestStatusCode("https://example.com/", 5000, mockReq);
+    assert.deepEqual(calls, ["HEAD", "GET"], "should try HEAD first then GET");
+    assert.equal(result.statusCode, 200);
+  });
+
+  test("returns GET 403 when both HEAD and GET return 403", async () => {
+    const mockReq = async () => ({ statusCode: 403, statusMessage: "Forbidden" });
+    const result = await getHeadRequestStatusCode("https://example.com/", 5000, mockReq);
+    assert.equal(result.statusCode, 403);
+  });
+
+  test("falls back to GET for 404 (some servers return 404 to HEAD but 200 to GET)", async () => {
+    const calls = [];
+    const mockReq = async (_url, method) => {
+      calls.push(method);
+      if (method === "HEAD") return { statusCode: 404, statusMessage: "Not Found" };
+      return { statusCode: 200, statusMessage: "OK" };
+    };
+    const result = await getHeadRequestStatusCode("https://example.com/", 5000, mockReq);
+    assert.deepEqual(calls, ["HEAD", "GET"], "should retry with GET after HEAD 404");
+    assert.equal(result.statusCode, 200);
+  });
+
+  test("falls back to GET for 405 Method Not Allowed", async () => {
+    const calls = [];
+    const mockReq = async (_url, method) => {
+      calls.push(method);
+      if (method === "HEAD") return { statusCode: 405, statusMessage: "Method Not Allowed" };
+      return { statusCode: 200, statusMessage: "OK" };
+    };
+    const result = await getHeadRequestStatusCode("https://example.com/", 5000, mockReq);
+    assert.deepEqual(calls, ["HEAD", "GET"], "should retry with GET after HEAD 405");
+    assert.equal(result.statusCode, 200);
+  });
+
+  test("does not fall back to GET for other non-success codes (e.g. 500)", async () => {
+    const calls = [];
+    const mockReq = async (_url, method) => {
+      calls.push(method);
+      return { statusCode: 500, statusMessage: "Internal Server Error" };
+    };
+    await getHeadRequestStatusCode("https://example.com/", 5000, mockReq);
+    assert.deepEqual(calls, ["HEAD"], "should not retry with GET for 500 responses");
+  });
+
+  test("HEAD ETIMEDOUT → retries with GET and returns GET result", async () => {
+    const calls = [];
+    const mockReq = async (_url, method) => {
+      calls.push(method);
+      if (method === "HEAD") { const e = new Error("Request timed out"); e.code = "ETIMEDOUT"; throw e; }
+      return { statusCode: 200, statusMessage: "OK" };
+    };
+    const result = await getHeadRequestStatusCode("https://example.com/", 5000, mockReq);
+    assert.deepEqual(calls, ["HEAD", "GET"], "should try HEAD first then GET on timeout");
+    assert.equal(result.statusCode, 200);
+  });
+
+  test("HEAD ETIMEDOUT, GET also times out → throws the GET error", async () => {
+    const calls = [];
+    const mockReq = async (_url, method) => {
+      calls.push(method);
+      const e = new Error(`Request timed out (${method})`);
+      e.code = "ETIMEDOUT";
+      throw e;
+    };
+    await assert.rejects(
+      () => getHeadRequestStatusCode("https://example.com/", 5000, mockReq),
+      (err) => err.code === "ETIMEDOUT"
+    );
+    assert.deepEqual(calls, ["HEAD", "GET"]);
+  });
+
+  test("HEAD non-timeout error is not retried with GET", async () => {
+    const calls = [];
+    const mockReq = async (_url, method) => {
+      calls.push(method);
+      const e = new Error("connect ECONNREFUSED");
+      e.code = "ECONNREFUSED";
+      throw e;
+    };
+    await assert.rejects(
+      () => getHeadRequestStatusCode("https://example.com/", 5000, mockReq),
+      (err) => err.code === "ECONNREFUSED"
+    );
+    assert.deepEqual(calls, ["HEAD"], "non-timeout errors should not trigger GET retry");
   });
 });

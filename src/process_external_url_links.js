@@ -43,12 +43,20 @@ async function makeHttpRequest(urlString, method, timeoutMs = 5000) {
     hostname: url.hostname,
     port: url.port || (url.protocol === "https:" ? 443 : 80),
     path: url.pathname + url.search,
+    maxHeaderSize: 65536, // 64 KB (default is 16 KB; some sites send very large headers)
     headers: {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
       Accept:
         "text/html, application/xhtml+xml;q=0.9, application/vnd.wap.xhtml+xml;q=0.6, */*;q=0.5",
       "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
+      "Accept-Encoding": "gzip, deflate, br",
+      "Cache-Control": "no-cache",
+      "Upgrade-Insecure-Requests": "1",
+      "Sec-Fetch-Dest": "document",
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Site": "none",
+      "Sec-Fetch-User": "?1",
     },
   };
 
@@ -76,9 +84,9 @@ async function makeHttpRequest(urlString, method, timeoutMs = 5000) {
     });
 
     timeoutId = setTimeout(() => {
-      req.destroy(
-        new Error(`Request timed out after ${timeoutMs}ms for ${urlString} (${method})`)
-      );
+      const err = new Error(`Request timed out after ${timeoutMs}ms for ${urlString} (${method})`);
+      err.code = "ETIMEDOUT";
+      req.destroy(err);
     }, timeoutMs);
 
     req.on("error", (e) => {
@@ -98,10 +106,20 @@ async function makeHttpRequest(urlString, method, timeoutMs = 5000) {
  * @param {number} [timeoutMs=5000]
  * @returns {Promise<{statusCode: number, statusMessage: string, redirectUrl?: string, retryAfterMs?: number}>}
  */
-async function getHeadRequestStatusCode(urlString, timeoutMs = 5000) {
-  const headResult = await makeHttpRequest(urlString, "HEAD", timeoutMs);
-  if (headResult.statusCode === 403) {
-    return makeHttpRequest(urlString, "GET", timeoutMs);
+async function getHeadRequestStatusCode(urlString, timeoutMs = 5000, _makeRequest = makeHttpRequest) {
+  let headResult;
+  try {
+    headResult = await _makeRequest(urlString, "HEAD", timeoutMs);
+  } catch (err) {
+    // Some servers silently drop HEAD requests, causing a timeout rather than
+    // returning 405.  Retry with GET before giving up.
+    if (err.code === "ETIMEDOUT") {
+      return _makeRequest(urlString, "GET", timeoutMs);
+    }
+    throw err;
+  }
+  if (headResult.statusCode === 403 || headResult.statusCode === 404 || headResult.statusCode === 405) {
+    return _makeRequest(urlString, "GET", timeoutMs);
   }
   return headResult;
 }
@@ -118,6 +136,11 @@ async function getHeadRequestStatusCode(urlString, timeoutMs = 5000) {
  *     one HTTP request.
  *   - abort() to stop immediately and continue with partial results.
  */
+// Transient server-side codes that warrant one automatic retry before being
+// classified.  Includes standard gateway/overload codes (502–504) that are
+// often triggered by bot-protection CDNs or momentary load spikes.
+const TRANSIENT_CODES = new Set([502, 503, 504]);
+
 class LinkManager {
   constructor(headRequestFunction, maxConcurrent = 10) {
     this.checkedUrls = new Map();
@@ -144,6 +167,11 @@ class LinkManager {
     this._retryAttempts = new Map();
     this._maxRetries = 3;
     this._baseRetryDelayMs = 1000;
+
+    // Transient-code retry: one retry after a short fixed delay.
+    this._transientRetryAttempts = new Map();
+    this._maxTransientRetries = 1;
+    this._transientRetryDelayMs = 2000;
 
     this._completionPromise = new Promise((resolve) => {
       this._resolveCompletionPromise = resolve;
@@ -276,6 +304,22 @@ class LinkManager {
                   error: new Error("Too many retries for 429 status code"),
                 });
               }
+            } else if (TRANSIENT_CODES.has(result.statusCode)) {
+              // Transient server error (502/503/504): retry once after a short delay.
+              const currentRetries = this._transientRetryAttempts.get(urlToProcess) ?? 0;
+              if (currentRetries < this._maxTransientRetries) {
+                this._transientRetryAttempts.set(urlToProcess, currentRetries + 1);
+                const retryEntry = { url: urlToProcess, ready: false };
+                this.retryQueue.push(retryEntry);
+                this._retrySet.add(urlToProcess);
+                setTimeout(() => { retryEntry.ready = true; this._processQueue(); }, this._transientRetryDelayMs);
+              } else {
+                this.checkedUrls.set(urlToProcess, {
+                  statusCode: result.statusCode,
+                  statusMessage: result.statusMessage,
+                });
+                this._transientRetryAttempts.delete(urlToProcess);
+              }
             } else {
               this.checkedUrls.set(urlToProcess, {
                 statusCode: result.statusCode,
@@ -283,6 +327,7 @@ class LinkManager {
                 redirectUrl: result.redirectUrl,
               });
               this._retryAttempts.delete(urlToProcess);
+              this._transientRetryAttempts.delete(urlToProcess);
               if (result.redirectUrl) {
                 this.checkURL(result.redirectUrl, true);
               }
@@ -431,7 +476,17 @@ async function processExternalUrlLinks(results, manager = null) {
         } else if (
           urlResult.statusCode === 302 ||
           urlResult.statusCode === 303 ||
-          urlResult.statusCode === 307
+          urlResult.statusCode === 307 ||
+          urlResult.statusCode === 403 ||
+          // Transient server-side codes: retried once automatically; if still failing
+          // after retry they are more likely bot-blocking or load spikes than broken links.
+          urlResult.statusCode === 502 ||
+          urlResult.statusCode === 503 ||
+          urlResult.statusCode === 504 ||
+          // Cloudflare/CDN-specific codes (520–527, 530): indicate CDN or bot-blocking
+          // issues rather than a definitively broken link, so report as warning not error.
+          (urlResult.statusCode >= 520 && urlResult.statusCode <= 527) ||
+          urlResult.statusCode === 530
         ) {
           errors.push(
             new ExternalLinkWarning({
@@ -440,18 +495,43 @@ async function processExternalUrlLinks(results, manager = null) {
               statusCode: urlResult.statusCode,
               statusMessage: urlResult.statusMessage,
               error: urlResult.error,
+              redirectUrl: urlResult.redirectUrl,
             })
           );
         } else {
-          errors.push(
-            new ExternalLinkError({
-              file: link.page,
-              link,
-              statusCode: urlResult.statusCode,
-              statusMessage: urlResult.statusMessage,
-              error: urlResult.error,
-            })
-          );
+          // Connection-level failures (AggregateError from Happy Eyeballs, ECONNREFUSED,
+          // ECONNRESET) mean the link couldn't be verified, not necessarily that it's broken.
+          // Treat these as warnings rather than hard errors.
+          const err = urlResult.error;
+          const isConnectionFailure =
+            err instanceof AggregateError ||
+            err?.code === "ECONNREFUSED" ||
+            err?.code === "ECONNRESET" ||
+            err?.code === "ETIMEDOUT";
+
+          if (!urlResult.statusCode && isConnectionFailure) {
+            errors.push(
+              new ExternalLinkWarning({
+                file: link.page,
+                link,
+                statusCode: urlResult.statusCode,
+                statusMessage: urlResult.statusMessage,
+                error: err,
+                redirectUrl: urlResult.redirectUrl,
+              })
+            );
+          } else {
+            errors.push(
+              new ExternalLinkError({
+                file: link.page,
+                link,
+                statusCode: urlResult.statusCode,
+                statusMessage: urlResult.statusMessage,
+                error: urlResult.error,
+                redirectUrl: urlResult.redirectUrl,
+              })
+            );
+          }
         }
       }
     });
@@ -459,7 +539,7 @@ async function processExternalUrlLinks(results, manager = null) {
   return errors;
 }
 
-export { processExternalUrlLinks, LinkManager, stripFragment };
+export { processExternalUrlLinks, LinkManager, stripFragment, getHeadRequestStatusCode };
 
 /* Format of a result object on page.urlLinks:
       {

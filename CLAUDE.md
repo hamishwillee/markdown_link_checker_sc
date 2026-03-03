@@ -67,6 +67,12 @@ State is managed in `index.js` via `sharedData` from `src/shared_data.js`. All p
 - `<docsroot>/_link_checker_sc/ignorefile.json` — array of files to skip parsing (paths relative to docsroot)
 - `<repo>/_link_checker_sc/ignore_errors.json` — specific errors to suppress (built interactively with `-p true`)
 
+Entries in `ignore_errors.json` may have an optional `expiry` field (`YYYY-MM-DD`). When an entry expires:
+- It is **kept** in the file with `expired: true` added (not deleted), so the history is visible.
+- The error re-appears in output, annotated with `[Previously ignored until <date>: "<reason>"]`.
+- In interactive mode (`-p true`), the previous reason is offered as the default when re-ignoring.
+- To renew: remove or update `expiry` and remove `expired: true`. To clean up: delete the entry manually.
+
 ## Source Files
 
 | File | Role |

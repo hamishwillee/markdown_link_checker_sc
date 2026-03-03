@@ -93,6 +93,20 @@ program
     "WIP (don't use) Error type names to remove, space separated. By default ExternalLinkWarning",
     "ExternalLinkWarning"
   )
+  .option(
+    "--add-ignore-url <url>",
+    "Add this URL to the ignore list and exit (suppresses all errors for this URL globally)"
+  )
+  .option(
+    "--add-ignore-reason [text]",
+    "Reason for the --add-ignore-url entry",
+    ""
+  )
+  .option(
+    "--ignore-expiry-months <n>",
+    "Default expiry in months for new ignore entries added via --add-ignore-url (default: 3)",
+    "3"
+  )
   .parse(process.argv);
 
 // TODO PX4 special parsing - errors or pages we exclude by default.
@@ -131,6 +145,32 @@ sharedData.options.markdownroot = path.join(
   sharedData.options.docsroot,
   sharedData.options.subdir
 );
+
+// Early-exit: add a URL to the ignore list and quit
+if (sharedData.options.addIgnoreUrl) {
+  const ignoreFilePath = path.join(
+    sharedData.options.docsroot,
+    "_link_checker_sc",
+    "ignore_errors.json"
+  );
+  let existing = [];
+  try {
+    existing = JSON.parse(fs.readFileSync(ignoreFilePath, "utf8"));
+  } catch {}
+  const expiryMonths = parseInt(sharedData.options.ignoreExpiryMonths ?? "3", 10);
+  const expiryDate = new Date();
+  expiryDate.setMonth(expiryDate.getMonth() + expiryMonths);
+  const expiryStr = expiryDate.toISOString().slice(0, 10);
+  existing.push({
+    link: { url: sharedData.options.addIgnoreUrl, text: "" },
+    hideReason: sharedData.options.addIgnoreReason || "",
+    expiry: expiryStr,
+  });
+  fs.mkdirSync(path.dirname(ignoreFilePath), { recursive: true });
+  fs.writeFileSync(ignoreFilePath, JSON.stringify(existing, null, 2));
+  console.log(`Added ignore entry for: ${sharedData.options.addIgnoreUrl}`);
+  process.exit(0);
+}
 
 //console.log(`debug: sharedData.options.repo: ${sharedData.options.repo}`);
 //console.log(`debug: sharedData.options.doc: ${sharedData.options.doc}`);
@@ -352,8 +392,7 @@ const processDirectory = async (dir) => {
       // A more robust solution might involve a WeakSet to track seen objects
       // For simplicity here, we're just checking for the specific problematic property
       if (key === "issuerCertificate") {
-        console.warn(`Circular reference detected in key: ${key}`);
-        return "[Circular]"; // Or undefined to omit it entirely
+        return "[Circular]";
       }
     }
     return value;
