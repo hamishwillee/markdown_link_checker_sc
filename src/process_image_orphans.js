@@ -15,10 +15,13 @@ var otherFileTypes = []; // Just used for logging in function below.
 async function getAllImageFilesInDirectory(dir, options) {
   logFunction(options, `Function: getAllImageFilesInDirectory(${dir})`);
 
-  // TODO put this all in a try catch and return a better error.
-  // Or perhaps put around parent.
-
-  const files = await fs.promises.readdir(dir, { withFileTypes: true });
+  let files;
+  try {
+    files = await fs.promises.readdir(dir, { withFileTypes: true });
+  } catch {
+    console.warn(`Warning: Image directory not found, skipping orphan check: ${dir}`);
+    return [];
+  }
   const images = [];
   for (let i = 0; i < files.length; i++) {
     const file = path.join(dir, files[i].name);
