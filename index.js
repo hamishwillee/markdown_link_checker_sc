@@ -35,8 +35,8 @@ program
   )
   .option(
     "-d, --doc [directory]",
-    "Docs root directory, relative to -r (such as `docs`). Defaults to '' (all docs in root of repo). Use -d as well to restrict search to a particular subfolder. Defaults to current directory.",
-    process.cwd()
+    "Docs root directory, relative to -r (such as `docs`). Defaults to '' (all docs in root of repo).",
+    ""
   )
   .option(
     "-e, --subdir [directory]",
