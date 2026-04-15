@@ -11,6 +11,9 @@ node index.js -r <repo-root> -d <docs-subdir> -e <lang-subdir> -i <image-subdir>
 # Example: PX4 docs
 node index.js -r ~/github/PX4/PX4-Autopilot/ -d docs -e en -i assets
 
+# PX4 docs — also flag absolute links that should be relative (e.g. https://docs.px4.io/...)
+node index.js -r ~/github/PX4/PX4-Autopilot/ -d docs -e en -i assets -u docs.px4.io
+
 # Include external link checking (slow)
 node index.js -r ~/github/PX4/PX4-Autopilot/ -d docs -e en -i assets -x true
 ```
@@ -26,7 +29,7 @@ node index.js -r ~/github/PX4/PX4-Autopilot/ -d docs -e en -i assets -x true
 | `-x true` | Also check external links |
 | `-f` | JSON file listing specific files to report on |
 | `-t` | TOC/summary file path (inferred if not set) |
-| `-u` | Site base URL to catch absolute links that should be relative |
+| `-u` | Site base URL (e.g. `docs.px4.io`). Without `-u`, absolute links to your site are treated as external URLs. With `-u`, they are flagged as `UrlToLocalSite` errors ("should this be relative?") |
 | `-m false` | Disable markdown fallback for `.html` links (try `.md` if `.html` not found) |
 | `-p true` | Interactive mode — build ignore list by answering prompts |
 | `-o false` | Disable log file output |
