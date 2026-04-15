@@ -13,7 +13,6 @@ import {
 } from "./src/helpers.js";
 
 import { outputErrors } from "./src/output_errors.js";
-
 import { slugifyVuepress } from "./src/slugify.js";
 import { processMarkdown } from "./src/process_markdown.js";
 import { processRelativeLinks } from "./src/process_relative_links.js";
@@ -27,7 +26,12 @@ import {
 import { checkImageOrphansGlobal } from "./src/process_image_orphans.js";
 import { filterErrors, filterIgnoreErrors } from "./src/filters.js";
 
+const { version } = JSON.parse(
+  fs.readFileSync(new URL("./package.json", import.meta.url), "utf8")
+);
+
 program
+  .version(version)
   .option(
     "-r, --repo <path>",
     "Repo root directory. Defaults to current directory. Everything resolved relative to this.)",
@@ -82,14 +86,15 @@ program
     false
   )
   .option(
-    //This doesn't work. Dunno why - does for other cases!
-    "-c, --anchor_in_heading [value]",
+    // No -c short flag: -c is already used by --headingAnchorSlugify
+    "--anchor_in_heading [value]",
     "Detect anchors in heading such as: # Heading {#anchor}",
     true
   )
   .option("-x, --externallink [value]", "Output logs to file", false)
   .option(
-    "-e, --errors [values]",
+    // No -e short flag: -e is already used by --subdir
+    "--errors [values]",
     "WIP (don't use) Error type names to remove, space separated. By default ExternalLinkWarning",
     "ExternalLinkWarning"
   )
