@@ -1,10 +1,10 @@
 {
   "name": "markdown_link_checker_sc",
-  "version": "0.0.143",
+  "version": "0.0.144",
   "description": "Markdown Link Checker",
   "main": "index.js",
   "scripts": {
-    "test": "node --test --test-reporter spec tests/unit/*.test.js tests/integration/*.test.js"
+    "test": "node --experimental-test-module-mocks --test --test-reporter spec tests/unit/*.test.js tests/integration/*.test.js"
   },
   "type": "module",
   "keywords": [

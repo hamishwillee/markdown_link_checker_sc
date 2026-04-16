@@ -99,10 +99,14 @@ function outputErrors(results, options) {
   // But only if iterative update in progress
   if (options.interactive) {
     const filePath = path.join(dirPath, "ignore_errors.json");
-    fs.writeFileSync(
-      filePath,
-      JSON.stringify(ignoreErrors, null, 2)
-    );
+    let existingIgnoreErrors = [];
+    try {
+      existingIgnoreErrors = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    } catch {
+      // File doesn't exist yet — start fresh
+    }
+    const merged = [...existingIgnoreErrors, ...ignoreErrors];
+    fs.writeFileSync(filePath, JSON.stringify(merged, null, 2));
   }
 }
 

@@ -81,7 +81,7 @@ program
   )
   .option("-o, --logtofile [value]", "Output logs to file", true)
   .option(
-    "-p, --interactive [value]",
+    "--interactive [value]",
     "Interactively add errors to the ignore list at <repo>/_link_checker_sc/ignore_errors.json",
     false
   )
