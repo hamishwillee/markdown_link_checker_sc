@@ -106,7 +106,7 @@ function outputErrors(results, options) {
       // File doesn't exist yet — start fresh
     }
     const merged = [...existingIgnoreErrors, ...ignoreErrors];
-    fs.writeFileSync(filePath, JSON.stringify(merged, null, 2));
+    fs.writeFileSync(filePath, JSON.stringify(merged, null, 2) + "\n");
   }
 }
 

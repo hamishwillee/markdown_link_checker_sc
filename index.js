@@ -172,7 +172,7 @@ if (sharedData.options.addIgnoreUrl) {
     expiry: expiryStr,
   });
   fs.mkdirSync(path.dirname(ignoreFilePath), { recursive: true });
-  fs.writeFileSync(ignoreFilePath, JSON.stringify(existing, null, 2));
+  fs.writeFileSync(ignoreFilePath, JSON.stringify(existing, null, 2) + "\n");
   console.log(`Added ignore entry for: ${sharedData.options.addIgnoreUrl}`);
   process.exit(0);
 }
