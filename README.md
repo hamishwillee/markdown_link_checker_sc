@@ -33,7 +33,7 @@ Options:
   -u, --site_url [value]              Site base url in form dev.example.com (used to catch absolute urls to local
                                       files)
   -o, --logtofile [value]             Output logs to file (default: true)
-  -p, --interactive [value]           Interactively add errors to the ignore list at
+  --interactive [value]               Interactively add errors to the ignore list at
                                       <repo>/_link_checker_sc/ignore_errors.json (default: false)
   --anchor_in_heading [value]         Detect anchors in heading such as: # Heading {#anchor} (default: true)
   -x, --externallink [value]          Output logs to file (default: false)

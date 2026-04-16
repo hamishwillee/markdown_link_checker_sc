@@ -31,7 +31,7 @@ node index.js -r ~/github/PX4/PX4-Autopilot/ -d docs -e en -i assets -x true
 | `-t` | TOC/summary file path (inferred if not set) |
 | `-u` | Site base URL (e.g. `docs.px4.io`). Without `-u`, absolute links to your site are treated as external URLs. With `-u`, they are flagged as `UrlToLocalSite` errors ("should this be relative?") |
 | `-m false` | Disable markdown fallback for `.html` links (try `.md` if `.html` not found) |
-| `-p true` | Interactive mode — build ignore list by answering prompts |
+| `--interactive` | Interactive mode — build ignore list by answering prompts |
 | `-o false` | Disable log file output |
 
 ## Output
@@ -68,12 +68,12 @@ State is managed in `index.js` via `sharedData` from `src/shared_data.js`. All p
 ## Ignore Files
 
 - `<docsroot>/_link_checker_sc/ignorefile.json` — array of files to skip parsing (paths relative to docsroot)
-- `<repo>/_link_checker_sc/ignore_errors.json` — specific errors to suppress (built interactively with `-p true`)
+- `<repo>/_link_checker_sc/ignore_errors.json` — specific errors to suppress (built interactively with `--interactive`)
 
 Entries in `ignore_errors.json` may have an optional `expiry` field (`YYYY-MM-DD`). When an entry expires:
 - It is **kept** in the file with `expired: true` added (not deleted), so the history is visible.
 - The error re-appears in output, annotated with `[Previously ignored until <date>: "<reason>"]`.
-- In interactive mode (`-p true`), the previous reason is offered as the default when re-ignoring.
+- In interactive mode (`--interactive`), the previous reason is offered as the default when re-ignoring.
 - To renew: remove or update `expiry` and remove `expired: true`. To clean up: delete the entry manually.
 
 ## Source Files
